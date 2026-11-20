@@ -16,7 +16,10 @@ import {
   Copy,
   Check,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
+
+const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
 
 interface Product {
   id: string;
@@ -156,6 +159,7 @@ export default function UmaShopPage() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [address, setAddress] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOrdered, setIsOrdered] = useState(false);
 
   // โหลดข้อมูลตะกร้าที่เคยปักไว้จากเครื่องเมื่อเปิดหน้าเว็บ
@@ -238,10 +242,50 @@ export default function UmaShopPage() {
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const shipping = subtotal > 0 ? 50 : 0;
+  const grandTotal = subtotal + shipping;
 
-  const handleCheckout = (e: React.FormEvent) => {
+  const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+
+    const itemListText = cart
+      .map(
+        (item, index) =>
+          `${index + 1}. ${item.product.name} x${item.quantity} ชิ้น (฿${(
+            item.product.price * item.quantity
+          ).toLocaleString()})`
+      )
+      .join('\n');
+
+    const orderTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+
+    try {
+      await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
+          subject: `[Tracen Collectibles] คำสั่งซื้อใหม่จากคุณ ${customerName} (฿${grandTotal.toLocaleString()})`,
+          from_name: 'Tracen Collectibles Store',
+          ชื่อผู้รับ: customerName,
+          ที่อยู่จัดส่งและเบอร์โทร: address,
+          รายการสินค้า: `\n${itemListText}`,
+          ค่าสินค้า: `฿${subtotal.toLocaleString()}`,
+          ค่าจัดส่ง: `฿${shipping}`,
+          ยอดชำระทั้งหมด: `฿${grandTotal.toLocaleString()}`,
+          เวลาสั่งซื้อ: orderTime,
+        }),
+      });
+    } catch (err) {
+      console.error('ส่งอีเมลไม่สำเร็จ:', err);
+    }
+
+    setIsSubmitting(false);
     setIsOrdered(true);
+
     setTimeout(() => {
       setCart([]);
       localStorage.removeItem('uma_shop_cart');
@@ -613,7 +657,7 @@ export default function UmaShopPage() {
                   <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto" />
                   <h3 className="text-xl font-bold text-gray-900">รับคำสั่งซื้อเรียบร้อย!</h3>
                   <p className="text-sm text-gray-500">
-                    ขอบคุณที่อุดหนุนครับ ทางร้านจะรีบจัดส่งให้เร็วที่สุด
+                    ส่งข้อมูลคำสั่งซื้อเข้าอีเมลเรียบร้อยแล้ว ทางร้านจะรีบจัดส่งให้เร็วที่สุดครับ
                   </p>
                 </div>
               ) : cart.length === 0 ? (
@@ -682,7 +726,7 @@ export default function UmaShopPage() {
                   </div>
                   <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t">
                     <span>ยอดชำระทั้งหมด</span>
-                    <span className="text-rose-700">฿{(subtotal + shipping).toLocaleString()}</span>
+                    <span className="text-rose-700">฿{grandTotal.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -707,9 +751,17 @@ export default function UmaShopPage() {
 
                 <button
                   type="submit"
-                  className="w-full rounded-xl bg-emerald-600 py-3 text-white font-semibold hover:bg-emerald-700 transition"
+                  disabled={isSubmitting}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-white font-semibold hover:bg-emerald-700 transition disabled:opacity-60"
                 >
-                  ยืนยันการสั่งซื้อ (PromptPay / โอนเงิน)
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>กำลังส่งคำสั่งซื้อ...</span>
+                    </>
+                  ) : (
+                    <span>ยืนยันการสั่งซื้อ (PromptPay / โอนเงิน)</span>
+                  )}
                 </button>
               </form>
             )}
