@@ -20,6 +20,7 @@ import {
   Heart,
   Upload,
   CreditCard,
+  ClipboardPaste,
 } from 'lucide-react';
 
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
@@ -184,6 +185,76 @@ export default function UmaShopPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOrdered, setIsOrdered] = useState(false);
 
+  // ฟังก์ชันกลางสำหรับนำไฟล์รูปมาแสดงตัวอย่าง
+  const applySlipFile = (file: File) => {
+    setSlipFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSlipPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ดักจับการกด Ctrl + V ทั้งหน้าจอทันทีที่เปิดตะกร้าอยู่ (ไม่ต้องคลิกในกรอบก่อน)
+  useEffect(() => {
+    if (!isCartOpen) return;
+
+    const handleWindowPaste = (e: ClipboardEvent) => {
+      const clipboardData = e.clipboardData;
+      if (!clipboardData) return;
+
+      // 1. ตรวจสอบจากไฟล์โดยตรง (เช่น ก๊อปไฟล์รูปจากโฟลเดอร์ หรือจาก LINE)
+      if (clipboardData.files && clipboardData.files.length > 0) {
+        const file = clipboardData.files[0];
+        if (file.type.startsWith('image/')) {
+          e.preventDefault();
+          applySlipFile(file);
+          return;
+        }
+      }
+
+      // 2. ตรวจสอบจาก items (เช่น แคปหน้าจอ PrintScreen / Snipping Tool / คัดลอกรูปในเว็บ)
+      if (clipboardData.items) {
+        for (let i = 0; i < clipboardData.items.length; i++) {
+          const item = clipboardData.items[i];
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+              e.preventDefault();
+              const namedFile = new File([file], file.name || 'pasted-slip.png', {
+                type: file.type,
+              });
+              applySlipFile(namedFile);
+              return;
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handleWindowPaste);
+    return () => window.removeEventListener('paste', handleWindowPaste);
+  }, [isCartOpen]);
+
+  // ฟังก์ชันสำหรับปุ่มกดวางรูปจากคลิปบอร์ดด้วยเมาส์
+  const handleButtonPasteSlip = async () => {
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        const imageType = item.types.find((type) => type.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const file = new File([blob], 'pasted-slip.png', { type: imageType });
+          applySlipFile(file);
+          return;
+        }
+      }
+      alert('ไม่พบรูปภาพในคลิปบอร์ด กรุณาแคปหน้าจอหรือก๊อปปี้รูปสลิปก่อนกดวางครับ');
+    } catch {
+      alert('เบราว์เซอร์ไม่อนุญาตให้เข้าถึงคลิปบอร์ดผ่านปุ่ม กรุณากด Ctrl + V บนคีย์บอร์ดแทนครับ');
+    }
+  };
+
   // โหลดข้อมูลรายการโปรด (Wishlist) จากเครื่อง
   useEffect(() => {
     const savedWishlist = localStorage.getItem('uma_shop_wishlist');
@@ -236,7 +307,6 @@ export default function UmaShopPage() {
 
   const wishlistProducts = PRODUCTS.filter((p) => wishlistIds.includes(p.id));
 
-  // กดสลับปักหัวใจ / ยกเลิกหัวใจ
   const handleToggleWishlist = (productId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setWishlistIds((prev) =>
@@ -298,35 +368,7 @@ export default function UmaShopPage() {
   const handleSlipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setSlipFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setSlipPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // รองรับการกด Ctrl+V วางรูปสลิปจากคลิปบอร์ดโดยตรง
-  const handlePasteSlip = (e: React.ClipboardEvent<HTMLLabelElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        if (file) {
-          e.preventDefault();
-          setSlipFile(file);
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setSlipPreview(reader.result as string);
-          };
-          reader.readAsDataURL(file);
-        }
-        break;
-      }
-    }
+    applySlipFile(file);
   };
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -518,7 +560,6 @@ export default function UmaShopPage() {
                       {product.status}
                     </span>
 
-                    {/* ปุ่มกดหัวใจมุมขวาบนของการ์ดสินค้า */}
                     <button
                       type="button"
                       onClick={(e) => handleToggleWishlist(product.id, e)}
@@ -730,7 +771,6 @@ export default function UmaShopPage() {
                     </div>
                   ) : (
                     <div className="flex gap-2">
-                      {/* ปุ่มปักหัวใจในหน้าต่างรายละเอียด */}
                       <button
                         type="button"
                         onClick={() => handleToggleWishlist(selectedProduct.id)}
@@ -1005,16 +1045,23 @@ export default function UmaShopPage() {
                     className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none"
                   />
 
-                  {/* ช่องอัปโหลด หรือ กด Ctrl+V วางรูปสลิปโอนเงิน */}
+                  {/* ช่องอัปโหลด หรือ วางรูปสลิปโอนเงิน */}
                   <div className="pt-1">
-                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                      แนบหลักฐานการโอนเงิน (สลิป) <span className="text-red-500">*</span>
-                    </label>
-                    <label
-                      tabIndex={0}
-                      onPaste={handlePasteSlip}
-                      className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 p-3 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/40 focus:border-emerald-500 focus:outline-none transition"
-                    >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-gray-700">
+                        แนบหลักฐานการโอนเงิน (สลิป) <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleButtonPasteSlip}
+                        className="flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-200 transition"
+                      >
+                        <ClipboardPaste className="h-3 w-3" />
+                        <span>วางรูปจากคลิปบอร์ด</span>
+                      </button>
+                    </div>
+
+                    <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 p-3 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/40 transition">
                       {slipPreview ? (
                         <div className="text-center space-y-1.5">
                           <img
@@ -1023,17 +1070,17 @@ export default function UmaShopPage() {
                             className="max-h-36 mx-auto rounded-lg border border-stone-200 object-contain"
                           />
                           <p className="text-[11px] text-emerald-700 font-medium">
-                            คลิกเพื่อเปลี่ยนรูป หรือกด Ctrl+V เพื่อวางรูปใหม่ ({slipFile?.name || 'pasted-slip.png'})
+                            คลิกเปลี่ยนรูป หรือกด Ctrl+V วางรูปใหม่ ({slipFile?.name || 'pasted-slip.png'})
                           </p>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center py-2 text-gray-500">
                           <Upload className="h-5 w-5 text-emerald-600 mb-1" />
                           <span className="text-xs font-medium text-gray-700">
-                            คลิกเลือกรูป หรือกด Ctrl+V เพื่อวางสลิป
+                            คลิกเลือกรูป หรือกด Ctrl + V วางสลิปได้ทันที
                           </span>
                           <span className="text-[11px] text-gray-400">
-                            รองรับ JPG, PNG และการก๊อปปี้วางรูปโดยตรง
+                            รองรับ JPG, PNG และการแคปหน้าจอวางโดยตรง
                           </span>
                         </div>
                       )}
