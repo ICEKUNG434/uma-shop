@@ -306,6 +306,29 @@ export default function UmaShopPage() {
     reader.readAsDataURL(file);
   };
 
+  // รองรับการกด Ctrl+V วางรูปสลิปจากคลิปบอร์ดโดยตรง
+  const handlePasteSlip = (e: React.ClipboardEvent<HTMLLabelElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          setSlipFile(file);
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setSlipPreview(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+        }
+        break;
+      }
+    }
+  };
+
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const shipping = subtotal > 0 ? 50 : 0;
@@ -314,7 +337,7 @@ export default function UmaShopPage() {
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!slipFile) {
-      alert('กรุณาแนบรูปสลิปโอนเงินเพื่อเป็นหลักฐานการสั่งซื้อครับ');
+      alert('กรุณาแนบหรือวางรูปสลิปโอนเงินเพื่อเป็นหลักฐานการสั่งซื้อครับ');
       return;
     }
 
@@ -346,7 +369,7 @@ export default function UmaShopPage() {
       formData.append('ค่าจัดส่ง', `฿${shipping}`);
       formData.append('ยอดชำระทั้งหมด', `฿${grandTotal.toLocaleString()}`);
       formData.append('เวลาสั่งซื้อ', orderTime);
-      formData.append('attachment', slipFile);
+      formData.append('attachment', slipFile, slipFile.name || 'slip.png');
 
       await fetch('https://api.web3forms.com/submit', {
         method: 'POST',
@@ -982,12 +1005,16 @@ export default function UmaShopPage() {
                     className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none"
                   />
 
-                  {/* ช่องอัปโหลดรูปสลิปโอนเงิน */}
+                  {/* ช่องอัปโหลด หรือ กด Ctrl+V วางรูปสลิปโอนเงิน */}
                   <div className="pt-1">
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                       แนบหลักฐานการโอนเงิน (สลิป) <span className="text-red-500">*</span>
                     </label>
-                    <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 p-3 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/40 transition">
+                    <label
+                      tabIndex={0}
+                      onPaste={handlePasteSlip}
+                      className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 p-3 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/40 focus:border-emerald-500 focus:outline-none transition"
+                    >
                       {slipPreview ? (
                         <div className="text-center space-y-1.5">
                           <img
@@ -996,22 +1023,23 @@ export default function UmaShopPage() {
                             className="max-h-36 mx-auto rounded-lg border border-stone-200 object-contain"
                           />
                           <p className="text-[11px] text-emerald-700 font-medium">
-                            คลิกเพื่อเปลี่ยนรูปสลิป ({slipFile?.name})
+                            คลิกเพื่อเปลี่ยนรูป หรือกด Ctrl+V เพื่อวางรูปใหม่ ({slipFile?.name || 'pasted-slip.png'})
                           </p>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center py-2 text-gray-500">
                           <Upload className="h-5 w-5 text-emerald-600 mb-1" />
                           <span className="text-xs font-medium text-gray-700">
-                            คลิกเลือกรูปสลิปโอนเงิน
+                            คลิกเลือกรูป หรือกด Ctrl+V เพื่อวางสลิป
                           </span>
-                          <span className="text-[11px] text-gray-400">รองรับ JPG, PNG</span>
+                          <span className="text-[11px] text-gray-400">
+                            รองรับ JPG, PNG และการก๊อปปี้วางรูปโดยตรง
+                          </span>
                         </div>
                       )}
                       <input
                         type="file"
                         accept="image/*"
-                        required
                         onChange={handleSlipChange}
                         className="hidden"
                       />
