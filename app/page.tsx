@@ -94,7 +94,7 @@ const PRODUCTS: Product[] = [
     reviewsCount: 24,
     description: 'โทไค เตโอ ในท่าโพสสุดร่าเริง เก็บรายละเอียดชุดแข่งและเครื่องประดับครบถ้วน',
   },
-   {
+  {
     id: 'uma-003',
     name: 'ฟิกเกอร์ Oguri Cap — 1/7 Scale (Phat! Company)',
     jpName: 'オグリキャップ',
@@ -120,7 +120,7 @@ const PRODUCTS: Product[] = [
     reviewsCount: 51,
     description: 'ฟิกเกอร์สเกล 1/7 โอกุริ แคป จากค่าย Phat! Company (ปั้นต้นแบบโดย Masaki Yusuke) มาพร้อมชุดเครื่องแบบโรงเรียนเทรเซนรายละเอียดคมชัดและฐานตั้งโชว์ในกล่อง',
   },
- {
+  {
     id: 'uma-004',
     name: 'ฟิกเกอร์ Oguri Cap — 1/7 Scale (Umamusume: Cinderella Gray)',
     jpName: 'オグリキャップ',
@@ -128,6 +128,7 @@ const PRODUCTS: Product[] = [
     category: 'ฟิกเกอร์',
     price: 7500,
     status: 'พร้อมส่ง',
+    // วางลิงก์รูปภาพทั้ง 5 มุมของ Oguri Cap (Cinderella Gray) ที่นี่
     images: [
       'https://img.amiami.com/images/product/review/253/FIGURE-190728_08.jpg',
       'https://img.amiami.com/images/product/review/253/FIGURE-190728_10.jpg',
