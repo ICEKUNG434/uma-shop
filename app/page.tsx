@@ -50,11 +50,11 @@ const PRODUCTS: Product[] = [
     status: 'พร้อมส่ง',
     // วางลิงก์รูปภาพทั้ง 5 มุมของ Special Week ที่นี่ (รูปแรกจะเป็นรูปหน้าปกหลัก)
     images: [
-      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
+      'https://de.lnwfile.com/_/de/_raw/fs/ww/w0.jpg',
+      'https://de.lnwfile.com/_/de/_raw/ud/1b/8u.jpg',
+      'https://de.lnwfile.com/_/de/_raw/kn/33/nv.jpg',
+      'https://de.lnwfile.com/_/de/_raw/ts/ui/az.jpg',
+      'https://de.lnwfile.com/_/de/_raw/2g/m7/mq.jpg',
     ],
     brand: 'Banpresto (Bandai Spirits)',
     lot: 'ลิขสิทธิ์แท้ 100% (Lot JP มีสติ๊กเกอร์แมวทอง)',
