@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
+const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 
 // 👇 แก้ไขข้อมูลบัญชีรับโอนเงินของคุณตรงนี้ครับ
 const BANK_INFO = {
@@ -159,6 +160,43 @@ const PRODUCTS: Product[] = [
   },
 ];
 
+// ฟังก์ชันบีบอัดขนาดรูปสลิปด้วย HTML5 Canvas (ความกว้างสูงสุด 800px, คุณภาพ 60%)
+function compressSlipImage(
+  file: File,
+  maxWidth = 800,
+  quality = 0.6
+): Promise<{ dataUrl: string; base64Clean: string; sizeKB: number }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas context unavailable'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        const base64Clean = compressedDataUrl.split(',')[1] || '';
+        const approxBytes = Math.round((compressedDataUrl.length * 3) / 4);
+        const sizeKB = Math.max(1, Math.round(approxBytes / 1024));
+        resolve({ dataUrl: compressedDataUrl, base64Clean, sizeKB });
+      };
+      img.onerror = reject;
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function UmaShopPage() {
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
   const [searchQuery, setSearchQuery] = useState('');
@@ -176,26 +214,31 @@ export default function UmaShopPage() {
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // ข้อมูลสั่งซื้อและแนบสลิป
+  // ข้อมูลสั่งซื้อและสลิปที่บีบอัดแล้ว
   const [customerName, setCustomerName] = useState('');
   const [address, setAddress] = useState('');
-  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [slipFileName, setSlipFileName] = useState<string | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  const [slipBase64, setSlipBase64] = useState<string | null>(null);
+  const [slipSizeKB, setSlipSizeKB] = useState<number>(0);
   const [copiedBank, setCopiedBank] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOrdered, setIsOrdered] = useState(false);
 
-  // ฟังก์ชันกลางสำหรับนำไฟล์รูปมาแสดงตัวอย่าง
-  const applySlipFile = (file: File) => {
-    setSlipFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setSlipPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+  // บีบอัดรูปและเตรียมข้อมูลสำหรับอัปโหลดขึ้น ImgBB
+  const applySlipFile = async (file: File) => {
+    try {
+      const { dataUrl, base64Clean, sizeKB } = await compressSlipImage(file, 800, 0.6);
+      setSlipFileName(file.name || 'slip-payment.jpg');
+      setSlipPreview(dataUrl);
+      setSlipBase64(base64Clean);
+      setSlipSizeKB(sizeKB);
+    } catch {
+      alert('ไม่สามารถอ่านไฟล์รูปภาพนี้ได้ กรุณาลองเลือกรูปใหม่อีกครั้งครับ');
+    }
   };
 
-  // ดักจับการกด Ctrl + V ทั้งหน้าจอทันทีที่เปิดตะกร้าอยู่ (ไม่ต้องคลิกในกรอบก่อน)
+  // ดักจับการกด Ctrl + V ทั้งหน้าจอทันทีที่เปิดตะกร้าอยู่
   useEffect(() => {
     if (!isCartOpen) return;
 
@@ -203,7 +246,6 @@ export default function UmaShopPage() {
       const clipboardData = e.clipboardData;
       if (!clipboardData) return;
 
-      // 1. ตรวจสอบจากไฟล์โดยตรง (เช่น ก๊อปไฟล์รูปจากโฟลเดอร์ หรือจาก LINE)
       if (clipboardData.files && clipboardData.files.length > 0) {
         const file = clipboardData.files[0];
         if (file.type.startsWith('image/')) {
@@ -213,7 +255,6 @@ export default function UmaShopPage() {
         }
       }
 
-      // 2. ตรวจสอบจาก items (เช่น แคปหน้าจอ PrintScreen / Snipping Tool / คัดลอกรูปในเว็บ)
       if (clipboardData.items) {
         for (let i = 0; i < clipboardData.items.length; i++) {
           const item = clipboardData.items[i];
@@ -221,10 +262,7 @@ export default function UmaShopPage() {
             const file = item.getAsFile();
             if (file) {
               e.preventDefault();
-              const namedFile = new File([file], file.name || 'pasted-slip.png', {
-                type: file.type,
-              });
-              applySlipFile(namedFile);
+              applySlipFile(file);
               return;
             }
           }
@@ -236,7 +274,7 @@ export default function UmaShopPage() {
     return () => window.removeEventListener('paste', handleWindowPaste);
   }, [isCartOpen]);
 
-  // ฟังก์ชันสำหรับปุ่มกดวางรูปจากคลิปบอร์ดด้วยเมาส์
+  // ปุ่มกดวางรูปจากคลิปบอร์ดด้วยเมาส์
   const handleButtonPasteSlip = async () => {
     try {
       const clipboardItems = await navigator.clipboard.read();
@@ -245,7 +283,7 @@ export default function UmaShopPage() {
         if (imageType) {
           const blob = await item.getType(imageType);
           const file = new File([blob], 'pasted-slip.png', { type: imageType });
-          applySlipFile(file);
+          await applySlipFile(file);
           return;
         }
       }
@@ -255,7 +293,7 @@ export default function UmaShopPage() {
     }
   };
 
-  // โหลดข้อมูลรายการโปรด (Wishlist) จากเครื่อง
+  // โหลดข้อมูลรายการโปรด (Wishlist)
   useEffect(() => {
     const savedWishlist = localStorage.getItem('uma_shop_wishlist');
     if (savedWishlist) {
@@ -268,14 +306,13 @@ export default function UmaShopPage() {
     setIsWishlistLoaded(true);
   }, []);
 
-  // บันทึกรายการโปรดลงเครื่องอัตโนมัติ
   useEffect(() => {
     if (isWishlistLoaded) {
       localStorage.setItem('uma_shop_wishlist', JSON.stringify(wishlistIds));
     }
   }, [wishlistIds, isWishlistLoaded]);
 
-  // โหลดข้อมูลตะกร้าจากเครื่อง
+  // โหลดข้อมูลตะกร้า
   useEffect(() => {
     const savedCart = localStorage.getItem('uma_shop_cart');
     if (savedCart) {
@@ -288,7 +325,6 @@ export default function UmaShopPage() {
     setIsCartLoaded(true);
   }, []);
 
-  // บันทึกตะกร้าลงเครื่องอัตโนมัติ
   useEffect(() => {
     if (isCartLoaded) {
       localStorage.setItem('uma_shop_cart', JSON.stringify(cart));
@@ -376,14 +412,36 @@ export default function UmaShopPage() {
   const shipping = subtotal > 0 ? 50 : 0;
   const grandTotal = subtotal + shipping;
 
+  // 1. อัปโหลดสลิปขึ้น ImgBB เพื่อรับลิงก์รูปภาพ -> 2. ส่งข้อมูลคำสั่งซื้อพร้อมลิงก์สลิปเข้า Gmail ผ่าน Web3Forms
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!slipFile) {
+    if (!slipBase64) {
       alert('กรุณาแนบหรือวางรูปสลิปโอนเงินเพื่อเป็นหลักฐานการสั่งซื้อครับ');
       return;
     }
 
     setIsSubmitting(true);
+
+    let slipImageUrl = 'อัปโหลดลิงก์สลิปไม่สำเร็จ';
+
+    try {
+      const imgbbForm = new FormData();
+      imgbbForm.append('key', IMGBB_API_KEY);
+      imgbbForm.append('image', slipBase64);
+      imgbbForm.append('name', `slip-${Date.now()}`);
+
+      const imgbbRes = await fetch('https://api.imgbb.com/1/upload', {
+        method: 'POST',
+        body: imgbbForm,
+      });
+      const imgbbData = await imgbbRes.json();
+
+      if (imgbbData?.success && imgbbData?.data?.url) {
+        slipImageUrl = imgbbData.data.url;
+      }
+    } catch (err) {
+      console.error('อัปโหลดรูปขึ้น ImgBB ไม่สำเร็จ:', err);
+    }
 
     const itemListText = cart
       .map(
@@ -397,28 +455,39 @@ export default function UmaShopPage() {
     const orderTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
 
     try {
-      const formData = new FormData();
-      formData.append('access_key', WEB3FORMS_ACCESS_KEY);
-      formData.append(
-        'subject',
-        `[Tracen Collectibles] คำสั่งซื้อใหม่ + สลิปโอนเงิน จากคุณ ${customerName} (฿${grandTotal.toLocaleString()})`
-      );
-      formData.append('from_name', 'Tracen Collectibles Store');
-      formData.append('ชื่อผู้รับ', customerName);
-      formData.append('ที่อยู่จัดส่งและเบอร์โทร', address);
-      formData.append('รายการสินค้า', `\n${itemListText}`);
-      formData.append('ค่าสินค้า', `฿${subtotal.toLocaleString()}`);
-      formData.append('ค่าจัดส่ง', `฿${shipping}`);
-      formData.append('ยอดชำระทั้งหมด', `฿${grandTotal.toLocaleString()}`);
-      formData.append('เวลาสั่งซื้อ', orderTime);
-      formData.append('attachment', slipFile, slipFile.name || 'slip.png');
-
-      await fetch('https://api.web3forms.com/submit', {
+      const response = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
+          subject: `[Tracen Collectibles] คำสั่งซื้อใหม่จากคุณ ${customerName} (฿${grandTotal.toLocaleString()})`,
+          from_name: 'Tracen Collectibles Store',
+          ชื่อผู้รับ: customerName,
+          ที่อยู่จัดส่งและเบอร์โทร: address,
+          รายการสินค้า: `\n${itemListText}`,
+          ค่าสินค้า: `฿${subtotal.toLocaleString()}`,
+          ค่าจัดส่ง: `฿${shipping}`,
+          ยอดชำระทั้งหมด: `฿${grandTotal.toLocaleString()}`,
+          ลิงก์รูปสลิปโอนเงิน: slipImageUrl,
+          รายละเอียดไฟล์สลิป: `${slipFileName || 'slip.jpg'} (${slipSizeKB} KB)`,
+          เวลาสั่งซื้อ: orderTime,
+        }),
       });
+
+      const result = await response.json();
+      if (!result.success) {
+        alert(`ส่งข้อมูลไม่สำเร็จ: ${result.message || 'กรุณาลองใหม่อีกครั้ง'}`);
+        setIsSubmitting(false);
+        return;
+      }
     } catch (err) {
       console.error('ส่งอีเมลไม่สำเร็จ:', err);
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้งครับ');
+      setIsSubmitting(false);
+      return;
     }
 
     setIsSubmitting(false);
@@ -430,8 +499,10 @@ export default function UmaShopPage() {
       setIsOrdered(false);
       setCustomerName('');
       setAddress('');
-      setSlipFile(null);
+      setSlipFileName(null);
       setSlipPreview(null);
+      setSlipBase64(null);
+      setSlipSizeKB(0);
       setIsCartOpen(false);
     }, 3000);
   };
@@ -919,7 +990,7 @@ export default function UmaShopPage() {
                   <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto" />
                   <h3 className="text-xl font-bold text-gray-900">ส่งคำสั่งซื้อและสลิปเรียบร้อย!</h3>
                   <p className="text-sm text-gray-500">
-                    ทางร้านได้รับข้อมูลออเดอร์และสลิปโอนเงินเรียบร้อยแล้ว จะรีบจัดส่งให้เร็วที่สุดครับ
+                    อัปโหลดสลิปและส่งรายละเอียดคำสั่งซื้อเข้าอีเมลเรียบร้อยแล้ว จะรีบตรวจสอบยอดและจัดส่งให้เร็วที่สุดครับ
                   </p>
                 </div>
               ) : cart.length === 0 ? (
@@ -1070,7 +1141,7 @@ export default function UmaShopPage() {
                             className="max-h-36 mx-auto rounded-lg border border-stone-200 object-contain"
                           />
                           <p className="text-[11px] text-emerald-700 font-medium">
-                            คลิกเปลี่ยนรูป หรือกด Ctrl+V วางรูปใหม่ ({slipFile?.name || 'pasted-slip.png'})
+                            บีบอัดแล้ว ({slipSizeKB} KB) • คลิกเปลี่ยนรูป หรือกด Ctrl+V วางใหม่
                           </p>
                         </div>
                       ) : (
@@ -1080,7 +1151,7 @@ export default function UmaShopPage() {
                             คลิกเลือกรูป หรือกด Ctrl + V วางสลิปได้ทันที
                           </span>
                           <span className="text-[11px] text-gray-400">
-                            รองรับ JPG, PNG และการแคปหน้าจอวางโดยตรง
+                            อัปโหลดลิงก์สลิปเข้าอีเมลอัตโนมัติ (รองรับ JPG, PNG และแคปหน้าจอวาง)
                           </span>
                         </div>
                       )}
@@ -1102,7 +1173,7 @@ export default function UmaShopPage() {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>กำลังส่งคำสั่งซื้อและสลิป...</span>
+                      <span>กำลังอัปโหลดสลิปและส่งคำสั่งซื้อ...</span>
                     </>
                   ) : (
                     <span>ยืนยันการสั่งซื้อพร้อมส่งสลิป</span>
