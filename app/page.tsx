@@ -94,7 +94,6 @@ const PRODUCTS: Product[] = [
     reviewsCount: 24,
     description: 'โทไค เตโอ ในท่าโพสสุดร่าเริง เก็บรายละเอียดชุดแข่งและเครื่องประดับครบถ้วน',
   },
-  {
    {
     id: 'uma-003',
     name: 'ฟิกเกอร์ Oguri Cap — 1/7 Scale (Phat! Company)',
