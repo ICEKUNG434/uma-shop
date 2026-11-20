@@ -129,7 +129,7 @@ const PRODUCTS: Product[] = [
     images: [
       'https://img.amiami.com/images/product/main/222/GOODS-04241403.jpg',
       'https://img.amiami.com/images/product/review/222/GOODS-04241403_01.jpg',
-      'https://ihttps://img.amiami.com/images/product/review/222/GOODS-04241403_02.jpg',
+      'https://img.amiami.com/images/product/review/222/GOODS-04241403_02.jpg',
     ],
     brand: 'COSPA (Cygames Official)',
     lot: 'ลิขสิทธิ์แท้ 100% (Lot JP)',
