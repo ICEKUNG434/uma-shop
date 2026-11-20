@@ -17,9 +17,20 @@ import {
   Check,
   AlertTriangle,
   Loader2,
+  Heart,
+  Upload,
+  CreditCard,
 } from 'lucide-react';
 
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
+
+// 👇 แก้ไขข้อมูลบัญชีรับโอนเงินของคุณตรงนี้ครับ
+const BANK_INFO = {
+  bankName: 'ธนาคารกสิกรไทย (KBank)',
+  accountNumber: '123-4-56789-0',
+  accountName: 'นาย อดิชาติ ใจสวน',
+  promptPay: '081-234-5678',
+};
 
 interface Product {
   id: string;
@@ -29,7 +40,7 @@ interface Product {
   category: 'ฟิกเกอร์' | 'ตุ๊กตา' | 'พวงกุญแจ';
   price: number;
   status: 'พร้อมส่ง' | 'พรีออเดอร์' | 'สินค้าหมด';
-  images: string[]; // รองรับรูปภาพได้สูงสุด 5 รูปของสินค้าชิ้นนั้นๆ
+  images: string[];
   brand: string;
   lot: string;
   size: string;
@@ -154,15 +165,46 @@ export default function UmaShopPage() {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // ระบบปักหัวใจ (Wishlist / รายการโปรด)
+  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
+  const [isWishlistLoaded, setIsWishlistLoaded] = useState(false);
+  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+
+  // ระบบตะกร้าสินค้า
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // ข้อมูลสั่งซื้อและแนบสลิป
   const [customerName, setCustomerName] = useState('');
   const [address, setAddress] = useState('');
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  const [copiedBank, setCopiedBank] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOrdered, setIsOrdered] = useState(false);
 
-  // โหลดข้อมูลตะกร้าที่เคยปักไว้จากเครื่องเมื่อเปิดหน้าเว็บ
+  // โหลดข้อมูลรายการโปรด (Wishlist) จากเครื่อง
+  useEffect(() => {
+    const savedWishlist = localStorage.getItem('uma_shop_wishlist');
+    if (savedWishlist) {
+      try {
+        setWishlistIds(JSON.parse(savedWishlist));
+      } catch {
+        localStorage.removeItem('uma_shop_wishlist');
+      }
+    }
+    setIsWishlistLoaded(true);
+  }, []);
+
+  // บันทึกรายการโปรดลงเครื่องอัตโนมัติ
+  useEffect(() => {
+    if (isWishlistLoaded) {
+      localStorage.setItem('uma_shop_wishlist', JSON.stringify(wishlistIds));
+    }
+  }, [wishlistIds, isWishlistLoaded]);
+
+  // โหลดข้อมูลตะกร้าจากเครื่อง
   useEffect(() => {
     const savedCart = localStorage.getItem('uma_shop_cart');
     if (savedCart) {
@@ -175,7 +217,7 @@ export default function UmaShopPage() {
     setIsCartLoaded(true);
   }, []);
 
-  // บันทึกข้อมูลตะกร้าลงเครื่องอัตโนมัติทุกครั้งที่มีการเพิ่ม/ลด/ลบสินค้า
+  // บันทึกตะกร้าลงเครื่องอัตโนมัติ
   useEffect(() => {
     if (isCartLoaded) {
       localStorage.setItem('uma_shop_cart', JSON.stringify(cart));
@@ -192,6 +234,16 @@ export default function UmaShopPage() {
     return matchCategory && matchSearch;
   });
 
+  const wishlistProducts = PRODUCTS.filter((p) => wishlistIds.includes(p.id));
+
+  // กดสลับปักหัวใจ / ยกเลิกหัวใจ
+  const handleToggleWishlist = (productId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setWishlistIds((prev) =>
+      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+  };
+
   const handleOpenProduct = (product: Product) => {
     setSelectedProduct(product);
     setActiveImageIdx(0);
@@ -203,6 +255,12 @@ export default function UmaShopPage() {
     navigator.clipboard.writeText(shareUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleCopyBankAccount = () => {
+    navigator.clipboard.writeText(BANK_INFO.accountNumber.replace(/-/g, ''));
+    setCopiedBank(true);
+    setTimeout(() => setCopiedBank(false), 2000);
   };
 
   const handleAddToCart = (product: Product) => {
@@ -228,15 +286,24 @@ export default function UmaShopPage() {
     );
   };
 
-  // ฟังก์ชันลบสินค้าเฉพาะรายการออกจากตะกร้า
   const handleRemoveItem = (id: string) => {
     setCart((prev) => prev.filter((item) => item.product.id !== id));
   };
 
-  // ฟังก์ชันล้างสินค้าทั้งหมดในตะกร้า
   const handleClearCart = () => {
     setCart([]);
     localStorage.removeItem('uma_shop_cart');
+  };
+
+  const handleSlipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSlipFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSlipPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -246,6 +313,11 @@ export default function UmaShopPage() {
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!slipFile) {
+      alert('กรุณาแนบรูปสลิปโอนเงินเพื่อเป็นหลักฐานการสั่งซื้อครับ');
+      return;
+    }
+
     setIsSubmitting(true);
 
     const itemListText = cart
@@ -260,24 +332,25 @@ export default function UmaShopPage() {
     const orderTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
 
     try {
+      const formData = new FormData();
+      formData.append('access_key', WEB3FORMS_ACCESS_KEY);
+      formData.append(
+        'subject',
+        `[Tracen Collectibles] คำสั่งซื้อใหม่ + สลิปโอนเงิน จากคุณ ${customerName} (฿${grandTotal.toLocaleString()})`
+      );
+      formData.append('from_name', 'Tracen Collectibles Store');
+      formData.append('ชื่อผู้รับ', customerName);
+      formData.append('ที่อยู่จัดส่งและเบอร์โทร', address);
+      formData.append('รายการสินค้า', `\n${itemListText}`);
+      formData.append('ค่าสินค้า', `฿${subtotal.toLocaleString()}`);
+      formData.append('ค่าจัดส่ง', `฿${shipping}`);
+      formData.append('ยอดชำระทั้งหมด', `฿${grandTotal.toLocaleString()}`);
+      formData.append('เวลาสั่งซื้อ', orderTime);
+      formData.append('attachment', slipFile);
+
       await fetch('https://api.web3forms.com/submit', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
-          access_key: WEB3FORMS_ACCESS_KEY,
-          subject: `[Tracen Collectibles] คำสั่งซื้อใหม่จากคุณ ${customerName} (฿${grandTotal.toLocaleString()})`,
-          from_name: 'Tracen Collectibles Store',
-          ชื่อผู้รับ: customerName,
-          ที่อยู่จัดส่งและเบอร์โทร: address,
-          รายการสินค้า: `\n${itemListText}`,
-          ค่าสินค้า: `฿${subtotal.toLocaleString()}`,
-          ค่าจัดส่ง: `฿${shipping}`,
-          ยอดชำระทั้งหมด: `฿${grandTotal.toLocaleString()}`,
-          เวลาสั่งซื้อ: orderTime,
-        }),
+        body: formData,
       });
     } catch (err) {
       console.error('ส่งอีเมลไม่สำเร็จ:', err);
@@ -292,8 +365,10 @@ export default function UmaShopPage() {
       setIsOrdered(false);
       setCustomerName('');
       setAddress('');
+      setSlipFile(null);
+      setSlipPreview(null);
       setIsCartOpen(false);
-    }, 2500);
+    }, 3000);
   };
 
   return (
@@ -319,18 +394,39 @@ export default function UmaShopPage() {
             />
           </div>
 
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-          >
-            <ShoppingBag className="h-4 w-4" />
-            <span>ตะกร้า</span>
-            {totalItems > 0 && (
-              <span className="rounded-full bg-rose-600 px-2 py-0.5 text-xs font-bold">
-                {totalItems}
-              </span>
-            )}
-          </button>
+          {/* ปุ่มรายการที่ถูกใจ (หัวใจ) + ปุ่มตะกร้า */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsWishlistOpen(true)}
+              className="relative flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition"
+              title="รายการที่ปักหัวใจไว้"
+            >
+              <Heart
+                className={`h-4 w-4 ${
+                  wishlistIds.length > 0 ? 'fill-rose-500 text-rose-500' : 'text-gray-500'
+                }`}
+              />
+              <span className="hidden md:inline">ถูกใจ</span>
+              {wishlistIds.length > 0 && (
+                <span className="rounded-full bg-rose-100 text-rose-700 px-1.5 py-0.5 text-xs font-bold">
+                  {wishlistIds.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              <span>ตะกร้า</span>
+              {totalItems > 0 && (
+                <span className="rounded-full bg-rose-600 px-2 py-0.5 text-xs font-bold">
+                  {totalItems}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -372,63 +468,80 @@ export default function UmaShopPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {filteredProducts.map((product) => (
-            <div
-              key={product.id}
-              onClick={() => handleOpenProduct(product)}
-              className="group cursor-pointer rounded-2xl bg-white border border-stone-200 overflow-hidden shadow-sm hover:shadow-lg transition flex flex-col justify-between"
-            >
-              <div>
-                {/* กรอบรูปขนาดเท่ากันทุกใบและเห็นเต็มตัว (object-contain) */}
-                <div className="relative aspect-square bg-white p-3 border-b border-stone-100 overflow-hidden">
-                  <img
-                    src={product.images[0]}
-                    alt={product.name}
-                    className="h-full w-full object-contain group-hover:scale-105 transition duration-300"
-                  />
-                  <span
-                    className={`absolute top-3 left-3 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      product.status === 'พร้อมส่ง'
-                        ? 'bg-emerald-600 text-white'
-                        : product.status === 'พรีออเดอร์'
-                        ? 'bg-amber-500 text-white'
-                        : 'bg-gray-600 text-white'
-                    }`}
-                  >
-                    {product.status}
-                  </span>
-                  <span className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-0.5 text-[11px] text-white">
-                    {product.images.length} รูป
-                  </span>
-                </div>
+          {filteredProducts.map((product) => {
+            const isLiked = wishlistIds.includes(product.id);
+            return (
+              <div
+                key={product.id}
+                onClick={() => handleOpenProduct(product)}
+                className="group cursor-pointer rounded-2xl bg-white border border-stone-200 overflow-hidden shadow-sm hover:shadow-lg transition flex flex-col justify-between"
+              >
+                <div>
+                  <div className="relative aspect-square bg-white p-3 border-b border-stone-100 overflow-hidden">
+                    <img
+                      src={product.images[0]}
+                      alt={product.name}
+                      className="h-full w-full object-contain group-hover:scale-105 transition duration-300"
+                    />
+                    <span
+                      className={`absolute top-3 left-3 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        product.status === 'พร้อมส่ง'
+                          ? 'bg-emerald-600 text-white'
+                          : product.status === 'พรีออเดอร์'
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-gray-600 text-white'
+                      }`}
+                    >
+                      {product.status}
+                    </span>
 
-                <div className="p-4">
-                  <p className="text-xs text-emerald-700 font-medium">{product.character}</p>
-                  <h3 className="font-bold text-gray-900 mt-1 line-clamp-2 group-hover:text-emerald-700">
-                    {product.name}
-                  </h3>
-                  <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    <span>{product.rating}</span>
-                    <span>({product.reviewsCount})</span>
+                    {/* ปุ่มกดหัวใจมุมขวาบนของการ์ดสินค้า */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleToggleWishlist(product.id, e)}
+                      className="absolute top-2.5 right-2.5 z-10 rounded-full bg-white/90 p-2 shadow-sm border border-stone-200 hover:scale-110 transition"
+                      title={isLiked ? 'เอาออกจากรายการที่ถูกใจ' : 'ปักหัวใจเก็บไว้ดูทีหลัง'}
+                    >
+                      <Heart
+                        className={`h-4 w-4 transition ${
+                          isLiked ? 'fill-rose-500 text-rose-500' : 'text-gray-400 hover:text-rose-500'
+                        }`}
+                      />
+                    </button>
+
+                    <span className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-0.5 text-[11px] text-white">
+                      {product.images.length} รูป
+                    </span>
+                  </div>
+
+                  <div className="p-4">
+                    <p className="text-xs text-emerald-700 font-medium">{product.character}</p>
+                    <h3 className="font-bold text-gray-900 mt-1 line-clamp-2 group-hover:text-emerald-700">
+                      {product.name}
+                    </h3>
+                    <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                      <span>{product.rating}</span>
+                      <span>({product.reviewsCount})</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="px-4 pb-4 pt-2 flex items-center justify-between border-t border-stone-100">
-                <span className="text-lg font-bold text-rose-700">
-                  ฿{product.price.toLocaleString()}
-                </span>
-                <span className="text-xs font-medium text-emerald-700 group-hover:underline">
-                  ดูรายละเอียด →
-                </span>
+                <div className="px-4 pb-4 pt-2 flex items-center justify-between border-t border-stone-100">
+                  <span className="text-lg font-bold text-rose-700">
+                    ฿{product.price.toLocaleString()}
+                  </span>
+                  <span className="text-xs font-medium text-emerald-700 group-hover:underline">
+                    ดูรายละเอียด →
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </main>
 
-      {/* Pop-up รายละเอียดสินค้า (พร้อมแกลเลอรีรูปภาพขนาดเท่ากัน & ป้ายยืนยันร้านค้า) */}
+      {/* Pop-up รายละเอียดสินค้า */}
       {selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl max-h-[92vh] overflow-y-auto p-6 md:p-8">
@@ -450,7 +563,6 @@ export default function UmaShopPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* ฝั่งซ้าย: รูปใหญ่ขนาดเท่ากัน + แถบรูปย่อยด้านล่าง */}
               <div>
                 <div className="aspect-square w-full rounded-xl bg-white border border-stone-200 p-4 overflow-hidden flex items-center justify-center">
                   <img
@@ -460,7 +572,6 @@ export default function UmaShopPage() {
                   />
                 </div>
 
-                {/* แถบรูปย่อย (Thumbnails) ขนาดเท่ากัน */}
                 <div className="grid grid-cols-5 gap-2 mt-3">
                   {selectedProduct.images.slice(0, 5).map((imgUrl, idx) => (
                     <button
@@ -482,7 +593,6 @@ export default function UmaShopPage() {
                   ))}
                 </div>
 
-                {/* ช่องแชร์ลิงก์สินค้า */}
                 <div className="mt-4 pt-3 border-t border-stone-100 flex items-center gap-2">
                   <span className="text-xs text-gray-500 shrink-0">แชร์สินค้า:</span>
                   <input
@@ -511,7 +621,6 @@ export default function UmaShopPage() {
                 </div>
               </div>
 
-              {/* ฝั่งขวา: ตารางข้อมูลสินค้า สถานะ ป้ายยืนยันร้านค้า และปุ่มสั่งซื้อ */}
               <div className="flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-1.5 text-sm text-amber-500 mb-3">
@@ -597,16 +706,36 @@ export default function UmaShopPage() {
                       <span>ขออภัย สินค้าหมด</span>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => {
-                        handleAddToCart(selectedProduct);
-                        setSelectedProduct(null);
-                      }}
-                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-rose-700 py-3.5 text-white font-semibold hover:bg-rose-800 transition shadow-sm"
-                    >
-                      <ShoppingBag className="h-5 w-5" />
-                      เพิ่มลงตะกร้า (฿{selectedProduct.price.toLocaleString()})
-                    </button>
+                    <div className="flex gap-2">
+                      {/* ปุ่มปักหัวใจในหน้าต่างรายละเอียด */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleWishlist(selectedProduct.id)}
+                        className={`flex items-center justify-center rounded-xl border px-4 py-3.5 transition ${
+                          wishlistIds.includes(selectedProduct.id)
+                            ? 'border-rose-200 bg-rose-50 text-rose-600'
+                            : 'border-stone-200 bg-white text-gray-600 hover:bg-stone-50'
+                        }`}
+                        title="ปักหัวใจเก็บไว้ก่อน"
+                      >
+                        <Heart
+                          className={`h-5 w-5 ${
+                            wishlistIds.includes(selectedProduct.id) ? 'fill-rose-500' : ''
+                          }`}
+                        />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          handleAddToCart(selectedProduct);
+                          setSelectedProduct(null);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-700 py-3.5 text-white font-semibold hover:bg-rose-800 transition shadow-sm"
+                      >
+                        <ShoppingBag className="h-5 w-5" />
+                        เพิ่มลงตะกร้า (฿{selectedProduct.price.toLocaleString()})
+                      </button>
+                    </div>
                   )}
 
                   <div className="mt-3 space-y-1 text-xs text-gray-500">
@@ -626,7 +755,77 @@ export default function UmaShopPage() {
         </div>
       )}
 
-      {/* แถบตะกร้าสินค้า */}
+      {/* แถบรายการที่ถูกใจ (Wishlist / ปักหัวใจไว้ก่อน) */}
+      {isWishlistOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
+          <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between p-6 overflow-y-auto">
+            <div>
+              <div className="flex items-center justify-between pb-4 border-b">
+                <div className="flex items-center gap-2">
+                  <Heart className="h-5 w-5 fill-rose-500 text-rose-500" />
+                  <h2 className="text-lg font-bold text-gray-900">รายการที่ปักหัวใจไว้</h2>
+                </div>
+                <button
+                  onClick={() => setIsWishlistOpen(false)}
+                  className="p-1.5 rounded-full hover:bg-gray-100"
+                >
+                  <X className="h-5 w-5 text-gray-600" />
+                </button>
+              </div>
+
+              {wishlistProducts.length === 0 ? (
+                <div className="py-20 text-center space-y-2 text-gray-400">
+                  <Heart className="h-10 w-10 mx-auto text-gray-300" />
+                  <p>ยังไม่มีสินค้าที่ปักหัวใจไว้</p>
+                  <p className="text-xs">กดรูปหัวใจบนสินค้าที่สนใจเพื่อเก็บไว้ดูทีหลังได้ครับ</p>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  {wishlistProducts.map((product) => (
+                    <div key={product.id} className="flex gap-3 border-b pb-4">
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="h-16 w-16 rounded-lg object-contain bg-white border border-stone-200 p-1"
+                      />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-gray-800 line-clamp-1">
+                          {product.name}
+                        </h4>
+                        <p className="text-sm font-bold text-rose-700 mt-0.5">
+                          ฿{product.price.toLocaleString()}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleAddToCart(product);
+                              setIsWishlistOpen(false);
+                            }}
+                            className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                          >
+                            + ย้ายลงตะกร้า
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleWishlist(product.id)}
+                            className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-red-600"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>เอาออก</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* แถบตะกร้าสินค้า + แนบสลิปโอนเงิน */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
           <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between p-6 overflow-y-auto">
@@ -655,9 +854,9 @@ export default function UmaShopPage() {
               {isOrdered ? (
                 <div className="py-16 text-center space-y-3">
                   <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto" />
-                  <h3 className="text-xl font-bold text-gray-900">รับคำสั่งซื้อเรียบร้อย!</h3>
+                  <h3 className="text-xl font-bold text-gray-900">ส่งคำสั่งซื้อและสลิปเรียบร้อย!</h3>
                   <p className="text-sm text-gray-500">
-                    ส่งข้อมูลคำสั่งซื้อเข้าอีเมลเรียบร้อยแล้ว ทางร้านจะรีบจัดส่งให้เร็วที่สุดครับ
+                    ทางร้านได้รับข้อมูลออเดอร์และสลิปโอนเงินเรียบร้อยแล้ว จะรีบจัดส่งให้เร็วที่สุดครับ
                   </p>
                 </div>
               ) : cart.length === 0 ? (
@@ -730,7 +929,42 @@ export default function UmaShopPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2">
+                {/* กล่องแสดงช่องทางโอนเงิน */}
+                <div className="rounded-xl bg-emerald-50/80 border border-emerald-200 p-3 text-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                    <CreditCard className="h-4 w-4 text-emerald-700" />
+                    <span>ช่องทางโอนเงินชำระค่าสินค้า</span>
+                  </div>
+                  <p className="text-gray-700">{BANK_INFO.bankName}</p>
+                  <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-emerald-200">
+                    <span className="font-mono font-bold text-sm text-gray-900">
+                      {BANK_INFO.accountNumber}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyBankAccount}
+                      className="flex items-center gap-1 text-emerald-700 font-semibold hover:underline"
+                    >
+                      {copiedBank ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          <span>คัดลอกแล้ว</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" />
+                          <span>คัดลอกเลขบัญชี</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-gray-600">
+                    ชื่อบัญชี: <span className="font-medium text-gray-900">{BANK_INFO.accountName}</span> (พร้อมเพย์: {BANK_INFO.promptPay})
+                  </p>
+                </div>
+
+                {/* ช่องกรอกข้อมูลจัดส่ง */}
+                <div className="space-y-2 pt-1">
                   <input
                     type="text"
                     required
@@ -747,6 +981,42 @@ export default function UmaShopPage() {
                     onChange={(e) => setAddress(e.target.value)}
                     className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none"
                   />
+
+                  {/* ช่องอัปโหลดรูปสลิปโอนเงิน */}
+                  <div className="pt-1">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                      แนบหลักฐานการโอนเงิน (สลิป) <span className="text-red-500">*</span>
+                    </label>
+                    <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 p-3 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/40 transition">
+                      {slipPreview ? (
+                        <div className="text-center space-y-1.5">
+                          <img
+                            src={slipPreview}
+                            alt="ตัวอย่างสลิป"
+                            className="max-h-36 mx-auto rounded-lg border border-stone-200 object-contain"
+                          />
+                          <p className="text-[11px] text-emerald-700 font-medium">
+                            คลิกเพื่อเปลี่ยนรูปสลิป ({slipFile?.name})
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center py-2 text-gray-500">
+                          <Upload className="h-5 w-5 text-emerald-600 mb-1" />
+                          <span className="text-xs font-medium text-gray-700">
+                            คลิกเลือกรูปสลิปโอนเงิน
+                          </span>
+                          <span className="text-[11px] text-gray-400">รองรับ JPG, PNG</span>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        required
+                        onChange={handleSlipChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 <button
@@ -757,10 +1027,10 @@ export default function UmaShopPage() {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>กำลังส่งคำสั่งซื้อ...</span>
+                      <span>กำลังส่งคำสั่งซื้อและสลิป...</span>
                     </>
                   ) : (
-                    <span>ยืนยันการสั่งซื้อ (PromptPay / โอนเงิน)</span>
+                    <span>ยืนยันการสั่งซื้อพร้อมส่งสลิป</span>
                   )}
                 </button>
               </form>
