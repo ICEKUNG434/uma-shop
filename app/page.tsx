@@ -103,11 +103,11 @@ const PRODUCTS: Product[] = [
     price: 7500,
     status: 'พร้อมส่ง',
     images: [
-      'วางลิงก์รูปที่ 1 ที่นี่',
-      'วางลิงก์รูปที่ 2 ที่นี่',
-      'วางลิงก์รูปที่ 3 ที่นี่',
-      'วางลิงก์รูปที่ 4 ที่นี่',
-      'วางลิงก์รูปที่ 5 ที่นี่',
+      'https://img.amiami.com/images/product/review/253/FIGURE-190728_08.jpg',
+      'https://img.amiami.com/images/product/review/253/FIGURE-190728_10.jpg',
+      'https://img.amiami.com/images/product/review/253/FIGURE-190728_12.jpg',
+      'https://img.amiami.com/images/product/review/253/FIGURE-190728_13.jpg',
+      'https://img.amiami.com/images/product/review/253/FIGURE-190728_14.jpg',
     ],
     brand: 'Phat! Company (Good Smile Company)',
     lot: 'ลิขสิทธิ์แท้ 100% (Lot JP)',
@@ -128,10 +128,9 @@ const PRODUCTS: Product[] = [
     category: 'ฟิกเกอร์',
     price: 7500,
     status: 'พร้อมส่ง',
-    // วางลิงก์รูปภาพทั้ง 5 มุมของ Oguri Cap (Cinderella Gray) ที่นี่
     images: [
       'https://img.amiami.com/images/product/review/253/FIGURE-190728_08.jpg',
-      'https://img.amiami.com/images/product/review/253/FIGURE-190728_10.jpgวางลิงก์รูปที่ 2 ที่นี่',
+      'https://img.amiami.com/images/product/review/253/FIGURE-190728_10.jpg',
       'https://img.amiami.com/images/product/review/253/FIGURE-190728_12.jpg',
       'https://img.amiami.com/images/product/review/253/FIGURE-190728_13.jpg',
       'https://img.amiami.com/images/product/review/253/FIGURE-190728_14.jpg',
