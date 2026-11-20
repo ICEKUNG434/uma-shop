@@ -69,7 +69,7 @@ const PRODUCTS: Product[] = [
   },
   {
     id: 'uma-002',
-    name: 'ฟิกเกอร์ Tokai Teio — Beyond the Horizon',
+    name: 'ฟิกเกอร์ Tokai Teio — B-style',
     jpName: 'トウカイテイオー',
     character: 'Tokai Teio',
     category: 'ฟิกเกอร์',
@@ -77,11 +77,11 @@ const PRODUCTS: Product[] = [
     status: 'พร้อมส่ง',
     // วางลิงก์รูปภาพทั้ง 5 มุมของ Tokai Teio ที่นี่
     images: [
-      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
+      'https://de.lnwfile.com/_/de/_raw/6h/6c/lr.jpg',
+      'https://de.lnwfile.com/_/de/_raw/vs/7k/yy.jpg',
+      'https://de.lnwfile.com/_/de/_raw/xd/hc/89.jpg',
+      'https://de.lnwfile.com/_/de/_raw/b4/bf/bz.jpg',
+      'https://de.lnwfile.com/_/de/_raw/m3/hd/tt.jpg',
     ],
     brand: 'Kotobukiya',
     lot: 'ลิขสิทธิ์แท้ 100% (Lot JP)',
