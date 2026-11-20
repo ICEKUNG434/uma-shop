@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search,
   ShoppingBag,
@@ -48,7 +48,6 @@ const PRODUCTS: Product[] = [
     category: 'ฟิกเกอร์',
     price: 1290,
     status: 'พร้อมส่ง',
-    // วางลิงก์รูปภาพทั้ง 5 มุมของ Special Week ที่นี่ (รูปแรกจะเป็นรูปหน้าปกหลัก)
     images: [
       'https://de.lnwfile.com/_/de/_raw/fs/ww/w0.jpg',
       'https://de.lnwfile.com/_/de/_raw/ud/1b/8u.jpg',
@@ -75,7 +74,6 @@ const PRODUCTS: Product[] = [
     category: 'ฟิกเกอร์',
     price: 1450,
     status: 'พร้อมส่ง',
-    // วางลิงก์รูปภาพทั้ง 5 มุมของ Tokai Teio ที่นี่
     images: [
       'https://de.lnwfile.com/_/de/_raw/6h/6c/lr.jpg',
       'https://de.lnwfile.com/_/de/_raw/vs/7k/yy.jpg',
@@ -120,7 +118,7 @@ const PRODUCTS: Product[] = [
     reviewsCount: 51,
     description: 'ฟิกเกอร์สเกล 1/7 โอกุริ แคป จากค่าย Phat! Company (ปั้นต้นแบบโดย Masaki Yusuke) มาพร้อมชุดเครื่องแบบโรงเรียนเทรเซนรายละเอียดคมชัดและฐานตั้งโชว์ในกล่อง',
   },
- {
+  {
     id: 'uma-004',
     name: 'พวงกุญแจอะคริลิค Rice Shower — Acrylic Pinched (Game Ver.)',
     jpName: 'ライスシャワー',
@@ -129,9 +127,7 @@ const PRODUCTS: Product[] = [
     price: 290,
     status: 'พร้อมส่ง',
     images: [
-      'https://img.amiami.com/images/product/main/222/GOODS-04241403.jpg',
-      'https://img.amiami.com/images/product/review/222/GOODS-04241403_01.jpg',
-      'https://img.amiami.com/images/product/review/222/GOODS-04241403_02.jpg',
+      'https://img.amiami.com/images/product/main/213/GOODS-04166418.jpg',
     ],
     brand: 'COSPA (Cygames Official)',
     lot: 'ลิขสิทธิ์แท้ 100% (Lot JP)',
@@ -154,10 +150,31 @@ export default function UmaShopPage() {
   const [copiedLink, setCopiedLink] = useState(false);
 
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [address, setAddress] = useState('');
   const [isOrdered, setIsOrdered] = useState(false);
+
+  // โหลดข้อมูลตะกร้าที่เคยปักไว้จากเครื่องเมื่อเปิดหน้าเว็บ
+  useEffect(() => {
+    const savedCart = localStorage.getItem('uma_shop_cart');
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch {
+        localStorage.removeItem('uma_shop_cart');
+      }
+    }
+    setIsCartLoaded(true);
+  }, []);
+
+  // บันทึกข้อมูลตะกร้าลงเครื่องอัตโนมัติทุกครั้งที่มีการเพิ่ม/ลด/ลบสินค้า
+  useEffect(() => {
+    if (isCartLoaded) {
+      localStorage.setItem('uma_shop_cart', JSON.stringify(cart));
+    }
+  }, [cart, isCartLoaded]);
 
   const categories = ['ทั้งหมด', 'ฟิกเกอร์', 'ตุ๊กตา', 'พวงกุญแจ'];
 
@@ -205,6 +222,17 @@ export default function UmaShopPage() {
     );
   };
 
+  // ฟังก์ชันลบสินค้าเฉพาะรายการออกจากตะกร้า
+  const handleRemoveItem = (id: string) => {
+    setCart((prev) => prev.filter((item) => item.product.id !== id));
+  };
+
+  // ฟังก์ชันล้างสินค้าทั้งหมดในตะกร้า
+  const handleClearCart = () => {
+    setCart([]);
+    localStorage.removeItem('uma_shop_cart');
+  };
+
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const shipping = subtotal > 0 ? 50 : 0;
@@ -214,6 +242,7 @@ export default function UmaShopPage() {
     setIsOrdered(true);
     setTimeout(() => {
       setCart([]);
+      localStorage.removeItem('uma_shop_cart');
       setIsOrdered(false);
       setCustomerName('');
       setAddress('');
@@ -353,7 +382,7 @@ export default function UmaShopPage() {
         </div>
       </main>
 
-      {/* Pop-up รายละเอียดสินค้า (พร้อมแกลเลอรี 5 รูปขนาดเท่ากัน & ป้ายยืนยันร้านค้า) */}
+      {/* Pop-up รายละเอียดสินค้า (พร้อมแกลเลอรีรูปภาพขนาดเท่ากัน & ป้ายยืนยันร้านค้า) */}
       {selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl max-h-[92vh] overflow-y-auto p-6 md:p-8">
@@ -375,7 +404,7 @@ export default function UmaShopPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* ฝั่งซ้าย: รูปใหญ่ขนาดเท่ากัน + แถบรูปย่อย 5 รูปด้านล่าง */}
+              {/* ฝั่งซ้าย: รูปใหญ่ขนาดเท่ากัน + แถบรูปย่อยด้านล่าง */}
               <div>
                 <div className="aspect-square w-full rounded-xl bg-white border border-stone-200 p-4 overflow-hidden flex items-center justify-center">
                   <img
@@ -385,7 +414,7 @@ export default function UmaShopPage() {
                   />
                 </div>
 
-                {/* แถบรูปย่อย 5 รูป (Thumbnails) ขนาดเท่ากัน */}
+                {/* แถบรูปย่อย (Thumbnails) ขนาดเท่ากัน */}
                 <div className="grid grid-cols-5 gap-2 mt-3">
                   {selectedProduct.images.slice(0, 5).map((imgUrl, idx) => (
                     <button
@@ -558,12 +587,23 @@ export default function UmaShopPage() {
             <div>
               <div className="flex items-center justify-between pb-4 border-b">
                 <h2 className="text-lg font-bold text-gray-900">ตะกร้าสินค้าของคุณ</h2>
-                <button
-                  onClick={() => setIsCartOpen(false)}
-                  className="p-1.5 rounded-full hover:bg-gray-100"
-                >
-                  <X className="h-5 w-5 text-gray-600" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {cart.length > 0 && !isOrdered && (
+                    <button
+                      type="button"
+                      onClick={handleClearCart}
+                      className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline px-2 py-1"
+                    >
+                      ล้างตะกร้าทั้งหมด
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsCartOpen(false)}
+                    className="p-1.5 rounded-full hover:bg-gray-100"
+                  >
+                    <X className="h-5 w-5 text-gray-600" />
+                  </button>
+                </div>
               </div>
 
               {isOrdered ? (
@@ -594,25 +634,30 @@ export default function UmaShopPage() {
                         </p>
                         <div className="flex items-center gap-2 mt-2">
                           <button
+                            type="button"
                             onClick={() => handleUpdateQty(product.id, -1)}
                             className="p-1 rounded border hover:bg-gray-100"
+                            title="ลดจำนวน"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
                           <span className="text-xs font-medium w-6 text-center">{quantity}</span>
                           <button
+                            type="button"
                             onClick={() => handleUpdateQty(product.id, 1)}
                             className="p-1 rounded border hover:bg-gray-100"
+                            title="เพิ่มจำนวน"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
                           <button
-                            onClick={() =>
-                              setCart((prev) => prev.filter((i) => i.product.id !== product.id))
-                            }
-                            className="ml-auto text-gray-400 hover:text-red-500"
+                            type="button"
+                            onClick={() => handleRemoveItem(product.id)}
+                            className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 transition"
+                            title="ลบรายการนี้"
                           >
                             <Trash2 className="h-4 w-4" />
+                            <span>ลบ</span>
                           </button>
                         </div>
                       </div>
