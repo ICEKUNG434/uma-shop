@@ -21,6 +21,10 @@ import {
   Upload,
   CreditCard,
   ClipboardPaste,
+  ArrowUp,
+  Truck,
+  Sparkles,
+  RotateCcw,
 } from 'lucide-react';
 
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
@@ -160,7 +164,6 @@ const PRODUCTS: Product[] = [
   },
 ];
 
-// ฟังก์ชันบีบอัดขนาดรูปสลิปด้วย HTML5 Canvas (ความกว้างสูงสุด 800px, คุณภาพ 60%)
 function compressSlipImage(
   file: File,
   maxWidth = 800,
@@ -200,9 +203,14 @@ function compressSlipImage(
 export default function UmaShopPage() {
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc' | 'rating'>('default');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // ลูกเล่นแจ้งเตือนสั้นๆ มุมล่างซ้าย + ปุ่มเลื่อนกลับด้านบน
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // ระบบปักหัวใจ (Wishlist / รายการโปรด)
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
@@ -225,7 +233,21 @@ export default function UmaShopPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOrdered, setIsOrdered] = useState(false);
 
-  // บีบอัดรูปและเตรียมข้อมูลสำหรับอัปโหลดขึ้น ImgBB
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 2200);
+  };
+
+  useEffect(() => {
+    const onScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   const applySlipFile = async (file: File) => {
     try {
       const { dataUrl, base64Clean, sizeKB } = await compressSlipImage(file, 800, 0.6);
@@ -233,12 +255,12 @@ export default function UmaShopPage() {
       setSlipPreview(dataUrl);
       setSlipBase64(base64Clean);
       setSlipSizeKB(sizeKB);
+      showToast(`แนบสลิปเรียบร้อย (${sizeKB} KB)`);
     } catch {
       alert('ไม่สามารถอ่านไฟล์รูปภาพนี้ได้ กรุณาลองเลือกรูปใหม่อีกครั้งครับ');
     }
   };
 
-  // ดักจับการกด Ctrl + V ทั้งหน้าจอทันทีที่เปิดตะกร้าอยู่
   useEffect(() => {
     if (!isCartOpen) return;
 
@@ -274,7 +296,6 @@ export default function UmaShopPage() {
     return () => window.removeEventListener('paste', handleWindowPaste);
   }, [isCartOpen]);
 
-  // ปุ่มกดวางรูปจากคลิปบอร์ดด้วยเมาส์
   const handleButtonPasteSlip = async () => {
     try {
       const clipboardItems = await navigator.clipboard.read();
@@ -293,7 +314,6 @@ export default function UmaShopPage() {
     }
   };
 
-  // โหลดข้อมูลรายการโปรด (Wishlist)
   useEffect(() => {
     const savedWishlist = localStorage.getItem('uma_shop_wishlist');
     if (savedWishlist) {
@@ -312,7 +332,6 @@ export default function UmaShopPage() {
     }
   }, [wishlistIds, isWishlistLoaded]);
 
-  // โหลดข้อมูลตะกร้า
   useEffect(() => {
     const savedCart = localStorage.getItem('uma_shop_cart');
     if (savedCart) {
@@ -337,16 +356,28 @@ export default function UmaShopPage() {
     const matchCategory = selectedCategory === 'ทั้งหมด' || item.category === selectedCategory;
     const matchSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.character.toLowerCase().includes(searchQuery.toLowerCase());
+      item.character.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.jpName.toLowerCase().includes(searchQuery.toLowerCase());
     return matchCategory && matchSearch;
+  }).sort((a, b) => {
+    if (sortBy === 'price-asc') return a.price - b.price;
+    if (sortBy === 'price-desc') return b.price - a.price;
+    if (sortBy === 'rating') return b.rating - a.rating;
+    return 0;
   });
 
   const wishlistProducts = PRODUCTS.filter((p) => wishlistIds.includes(p.id));
 
-  const handleToggleWishlist = (productId: string, e?: React.MouseEvent) => {
+  const handleToggleWishlist = (product: Product, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    const exists = wishlistIds.includes(product.id);
     setWishlistIds((prev) =>
-      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
+      exists ? prev.filter((id) => id !== product.id) : [...prev, product.id]
+    );
+    showToast(
+      exists
+        ? `นำ "${product.character}" ออกจากรายการถูกใจแล้ว`
+        : `ปักหัวใจให้ "${product.character}" แล้ว`
     );
   };
 
@@ -360,16 +391,18 @@ export default function UmaShopPage() {
     const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/?item=${productId}`;
     navigator.clipboard.writeText(shareUrl);
     setCopiedLink(true);
+    showToast('คัดลอกลิงก์สินค้าแล้ว');
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const handleCopyBankAccount = () => {
     navigator.clipboard.writeText(BANK_INFO.accountNumber.replace(/-/g, ''));
     setCopiedBank(true);
+    showToast('คัดลอกเลขบัญชีแล้ว');
     setTimeout(() => setCopiedBank(false), 2000);
   };
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: Product, openDrawer = true) => {
     setCart((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
       if (existing) {
@@ -379,7 +412,8 @@ export default function UmaShopPage() {
       }
       return [...prev, { product, quantity: 1 }];
     });
-    setIsCartOpen(true);
+    showToast(`เพิ่ม "${product.character}" ลงตะกร้าแล้ว`);
+    if (openDrawer) setIsCartOpen(true);
   };
 
   const handleUpdateQty = (id: string, delta: number) => {
@@ -399,6 +433,7 @@ export default function UmaShopPage() {
   const handleClearCart = () => {
     setCart([]);
     localStorage.removeItem('uma_shop_cart');
+    showToast('ล้างตะกร้าเรียบร้อยแล้ว');
   };
 
   const handleSlipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -412,7 +447,6 @@ export default function UmaShopPage() {
   const shipping = subtotal > 0 ? 50 : 0;
   const grandTotal = subtotal + shipping;
 
-  // 1. อัปโหลดสลิปขึ้น ImgBB เพื่อรับลิงก์รูปภาพ -> 2. ส่งข้อมูลคำสั่งซื้อพร้อมลิงก์สลิปเข้า Gmail ผ่าน Web3Forms
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!slipBase64) {
@@ -467,7 +501,7 @@ export default function UmaShopPage() {
           from_name: 'Tracen Collectibles Store',
           ชื่อผู้รับ: customerName,
           ที่อยู่จัดส่งและเบอร์โทร: address,
-          รายการสินค้า: `\n${itemListText}`,
+          รายการสินค้า: itemListText,
           ค่าสินค้า: `฿${subtotal.toLocaleString()}`,
           ค่าจัดส่ง: `฿${shipping}`,
           ยอดชำระทั้งหมด: `฿${grandTotal.toLocaleString()}`,
@@ -508,15 +542,22 @@ export default function UmaShopPage() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col bg-stone-50 text-gray-900">
       {/* แถบเมนูด้านบน */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-stone-200">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-stone-200 shadow-xs">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="h-8 w-8 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center">
+          <div className="flex items-center gap-2.5">
+            <span className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold flex items-center justify-center shadow-xs">
               U
             </span>
-            <span className="font-bold text-lg text-emerald-950">Tracen Collectibles</span>
+            <div>
+              <span className="font-bold text-lg text-emerald-950 block leading-none">
+                Tracen Collectibles
+              </span>
+              <span className="text-[11px] text-emerald-700 font-medium">
+                Uma Musume Figures & Goods
+              </span>
+            </div>
           </div>
 
           <div className="relative flex-1 max-w-md hidden sm:block">
@@ -526,11 +567,20 @@ export default function UmaShopPage() {
               placeholder="ค้นหาชื่อตัวละคร เช่น Special Week, Oguri..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-full bg-stone-100 pl-9 pr-4 py-2 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full rounded-full bg-stone-100 pl-9 pr-8 py-2 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600"
+                title="ล้างคำค้นหา"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
-          {/* ปุ่มรายการที่ถูกใจ (หัวใจ) + ปุ่มตะกร้า */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsWishlistOpen(true)}
@@ -552,7 +602,7 @@ export default function UmaShopPage() {
 
             <button
               onClick={() => setIsCartOpen(true)}
-              className="flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition"
+              className="flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition shadow-xs"
             >
               <ShoppingBag className="h-4 w-4" />
               <span>ตะกร้า</span>
@@ -567,32 +617,91 @@ export default function UmaShopPage() {
       </header>
 
       {/* แบนเนอร์ร้าน */}
-      <section className="bg-gradient-to-r from-emerald-800 to-teal-700 text-white py-12 px-4">
+      <section className="bg-gradient-to-r from-emerald-800 via-teal-700 to-emerald-900 text-white py-12 px-4">
         <div className="max-w-6xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
-            <ShieldCheck className="h-4 w-4 text-emerald-300" />
-            <span>สินค้าลิขสิทธิ์แท้จากญี่ปุ่น 100% คัดสภาพกล่อง</span>
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-xs">
+            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+            <span>สินค้าลิขสิทธิ์แท้จากญี่ปุ่น 100% คัดสภาพกล่องทุกชิ้น</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
             ศูนย์รวมฟิกเกอร์และของสะสม Uma Musume: Pretty Derby
           </h1>
-          <p className="text-emerald-100 text-sm md:text-base">
-            คัดสรรงานแท้ทั้งมือ 1 ในซีล และของสะสมหายาก แพ็กบับเบิลหนาพิเศษ ส่งไวทั่วไทย
+          <p className="text-emerald-100 text-sm md:text-base max-w-2xl">
+            คัดสรรงานแท้ทั้งมือ 1 ในซีล และของสะสมหายากจากค่ายชั้นนำ แพ็กบับเบิลหนาพิเศษ ส่งไวทั่วไทย
           </p>
         </div>
       </section>
 
+      {/* แถบสรุปจุดเด่นของร้าน (Trust Badges Bar) */}
+      <div className="bg-white border-b border-stone-200">
+        <div className="max-w-6xl mx-auto px-4 py-3.5 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-gray-700">
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-bold text-gray-900">ลิขสิทธิ์แท้ 100%</p>
+              <p className="text-gray-500">นำเข้าตรง Lot JP</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 text-gray-700">
+            <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+              <PackageCheck className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-bold text-gray-900">กันกระแทก 3 ชั้น</p>
+              <p className="text-gray-500">กล่องแข็งหนาพิเศษ</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 text-gray-700">
+            <div className="h-8 w-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+              <Truck className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-bold text-gray-900">จัดส่งไวทั่วไทย</p>
+              <p className="text-gray-500">ค่าส่งเริ่มต้น ฿50</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 text-gray-700">
+            <div className="h-8 w-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center shrink-0">
+              <CreditCard className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-bold text-gray-900">แนบสลิปง่าย</p>
+              <p className="text-gray-500">รองรับ Ctrl+V วางรูป</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ช่องค้นหาบนมือถือ */}
+      <div className="sm:hidden px-4 pt-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="ค้นหาชื่อตัวละคร เช่น Special Week..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-xl bg-white border border-stone-200 pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+      </div>
+
       {/* รายการสินค้า */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div className="flex gap-2 overflow-x-auto">
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition shrink-0 ${
                   selectedCategory === cat
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-emerald-600 text-white shadow-xs'
                     : 'bg-white text-gray-600 border border-stone-200 hover:bg-stone-100'
                 }`}
               >
@@ -600,85 +709,151 @@ export default function UmaShopPage() {
               </button>
             ))}
           </div>
-          <span className="text-sm text-gray-500">แสดง {filteredProducts.length} รายการ</span>
+
+          <div className="flex items-center gap-3">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none"
+              aria-label="เรียงลำดับสินค้า"
+            >
+              <option value="default">เรียงตาม: แนะนำ</option>
+              <option value="price-asc">ราคา: น้อย → มาก</option>
+              <option value="price-desc">ราคา: มาก → น้อย</option>
+              <option value="rating">คะแนนรีวิวสูงสุด</option>
+            </select>
+            <span className="text-sm text-gray-500">แสดง {filteredProducts.length} รายการ</span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {filteredProducts.map((product) => {
-            const isLiked = wishlistIds.includes(product.id);
-            return (
-              <div
-                key={product.id}
-                onClick={() => handleOpenProduct(product)}
-                className="group cursor-pointer rounded-2xl bg-white border border-stone-200 overflow-hidden shadow-sm hover:shadow-lg transition flex flex-col justify-between"
-              >
-                <div>
-                  <div className="relative aspect-square bg-white p-3 border-b border-stone-100 overflow-hidden">
-                    <img
-                      src={product.images[0]}
-                      alt={product.name}
-                      className="h-full w-full object-contain group-hover:scale-105 transition duration-300"
-                    />
-                    <span
-                      className={`absolute top-3 left-3 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        product.status === 'พร้อมส่ง'
-                          ? 'bg-emerald-600 text-white'
-                          : product.status === 'พรีออเดอร์'
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-gray-600 text-white'
-                      }`}
-                    >
-                      {product.status}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={(e) => handleToggleWishlist(product.id, e)}
-                      className="absolute top-2.5 right-2.5 z-10 rounded-full bg-white/90 p-2 shadow-sm border border-stone-200 hover:scale-110 transition"
-                      title={isLiked ? 'เอาออกจากรายการที่ถูกใจ' : 'ปักหัวใจเก็บไว้ดูทีหลัง'}
-                    >
-                      <Heart
-                        className={`h-4 w-4 transition ${
-                          isLiked ? 'fill-rose-500 text-rose-500' : 'text-gray-400 hover:text-rose-500'
-                        }`}
+        {filteredProducts.length === 0 ? (
+          <div className="rounded-2xl bg-white border border-stone-200 p-12 text-center space-y-3">
+            <p className="text-gray-600 font-medium">
+              ไม่พบสินค้าที่ตรงกับเงื่อนไขการค้นหาหรือหมวดหมู่ที่เลือกครับ
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory('ทั้งหมด');
+                setSearchQuery('');
+                setSortBy('default');
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span>ล้างตัวกรองทั้งหมด</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {filteredProducts.map((product) => {
+              const isLiked = wishlistIds.includes(product.id);
+              return (
+                <div
+                  key={product.id}
+                  onClick={() => handleOpenProduct(product)}
+                  className="group cursor-pointer rounded-2xl bg-white border border-stone-200 overflow-hidden shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition duration-200 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="relative aspect-square bg-white p-3 border-b border-stone-100 overflow-hidden">
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="h-full w-full object-contain group-hover:scale-105 transition duration-300"
                       />
-                    </button>
+                      <span
+                        className={`absolute top-3 left-3 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          product.status === 'พร้อมส่ง'
+                            ? 'bg-emerald-600 text-white'
+                            : product.status === 'พรีออเดอร์'
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-gray-600 text-white'
+                        }`}
+                      >
+                        {product.status}
+                      </span>
 
-                    <span className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-0.5 text-[11px] text-white">
-                      {product.images.length} รูป
-                    </span>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleWishlist(product, e)}
+                        className="absolute top-2.5 right-2.5 z-10 rounded-full bg-white/95 p-2 shadow-xs border border-stone-200 hover:scale-110 transition"
+                        title={isLiked ? 'เอาออกจากรายการที่ถูกใจ' : 'ปักหัวใจเก็บไว้ดูทีหลัง'}
+                      >
+                        <Heart
+                          className={`h-4 w-4 transition ${
+                            isLiked
+                              ? 'fill-rose-500 text-rose-500'
+                              : 'text-gray-400 hover:text-rose-500'
+                          }`}
+                        />
+                      </button>
 
-                  <div className="p-4">
-                    <p className="text-xs text-emerald-700 font-medium">{product.character}</p>
-                    <h3 className="font-bold text-gray-900 mt-1 line-clamp-2 group-hover:text-emerald-700">
-                      {product.name}
-                    </h3>
-                    <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
-                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                      <span>{product.rating}</span>
-                      <span>({product.reviewsCount})</span>
+                      <span className="absolute bottom-2 right-2 rounded bg-black/65 px-2 py-0.5 text-[11px] text-white">
+                        {product.images.length} รูป
+                      </span>
+                    </div>
+
+                    <div className="p-4">
+                      <p className="text-xs text-emerald-700 font-semibold">{product.character}</p>
+                      <h3 className="font-bold text-gray-900 mt-1 line-clamp-2 group-hover:text-emerald-700 transition">
+                        {product.name}
+                      </h3>
+                      <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                        <span className="font-medium text-gray-700">{product.rating}</span>
+                        <span>({product.reviewsCount})</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="px-4 pb-4 pt-2 flex items-center justify-between border-t border-stone-100">
-                  <span className="text-lg font-bold text-rose-700">
-                    ฿{product.price.toLocaleString()}
-                  </span>
-                  <span className="text-xs font-medium text-emerald-700 group-hover:underline">
-                    ดูรายละเอียด →
-                  </span>
+                  <div className="px-4 pb-4 pt-2.5 flex items-center justify-between border-t border-stone-100">
+                    <span className="text-lg font-bold text-rose-700">
+                      ฿{product.price.toLocaleString()}
+                    </span>
+                    <span className="text-xs font-semibold text-emerald-700 group-hover:underline">
+                      ดูรายละเอียด →
+                    </span>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </main>
+
+      {/* ส่วนท้ายหน้าเว็บ (Footer) */}
+      <footer className="bg-white border-t border-stone-200 py-6 px-4 text-xs text-gray-500">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+          <p className="font-medium text-gray-700">
+            Tracen Collectibles — ศูนย์รวมฟิกเกอร์และของสะสม Uma Musume ลิขสิทธิ์แท้
+          </p>
+          <p>จัดส่งทั่วประเทศ • แพ็กกันกระแทกทุกคำสั่งซื้อ</p>
+        </div>
+      </footer>
+
+      {/* ปุ่มเลื่อนกลับขึ้นด้านบน (Back to Top) */}
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-5 right-5 z-30 rounded-full bg-emerald-700 p-3 text-white shadow-lg hover:bg-emerald-800 transition"
+          title="เลื่อนกลับขึ้นด้านบน"
+        >
+          <ArrowUp className="h-5 w-5" />
+        </button>
+      )}
+
+      {/* กล่องแจ้งเตือนสั้นๆ มุมล่างซ้าย (Toast) */}
+      {toastMessage && (
+        <div className="fixed bottom-5 left-5 z-50 rounded-xl bg-gray-900/95 text-white px-4 py-2.5 text-xs font-medium shadow-lg flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* Pop-up รายละเอียดสินค้า */}
       {selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl max-h-[92vh] overflow-y-auto p-6 md:p-8">
             <button
               onClick={() => setSelectedProduct(null)}
@@ -844,7 +1019,7 @@ export default function UmaShopPage() {
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => handleToggleWishlist(selectedProduct.id)}
+                        onClick={() => handleToggleWishlist(selectedProduct)}
                         className={`flex items-center justify-center rounded-xl border px-4 py-3.5 transition ${
                           wishlistIds.includes(selectedProduct.id)
                             ? 'border-rose-200 bg-rose-50 text-rose-600'
@@ -861,10 +1036,10 @@ export default function UmaShopPage() {
 
                       <button
                         onClick={() => {
-                          handleAddToCart(selectedProduct);
+                          handleAddToCart(selectedProduct, true);
                           setSelectedProduct(null);
                         }}
-                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-700 py-3.5 text-white font-semibold hover:bg-rose-800 transition shadow-sm"
+                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-700 py-3.5 text-white font-semibold hover:bg-rose-800 transition shadow-xs"
                       >
                         <ShoppingBag className="h-5 w-5" />
                         เพิ่มลงตะกร้า (฿{selectedProduct.price.toLocaleString()})
@@ -933,7 +1108,7 @@ export default function UmaShopPage() {
                           <button
                             type="button"
                             onClick={() => {
-                              handleAddToCart(product);
+                              handleAddToCart(product, true);
                               setIsWishlistOpen(false);
                             }}
                             className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700"
@@ -942,7 +1117,7 @@ export default function UmaShopPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleToggleWishlist(product.id)}
+                            onClick={(e) => handleToggleWishlist(product, e)}
                             className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-red-600"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -1093,7 +1268,9 @@ export default function UmaShopPage() {
                     </button>
                   </div>
                   <p className="text-gray-600">
-                    ชื่อบัญชี: <span className="font-medium text-gray-900">{BANK_INFO.accountName}</span> (พร้อมเพย์: {BANK_INFO.promptPay})
+                    ชื่อบัญชี:{' '}
+                    <span className="font-medium text-gray-900">{BANK_INFO.accountName}</span>{' '}
+                    (พร้อมเพย์: {BANK_INFO.promptPay})
                   </p>
                 </div>
 
