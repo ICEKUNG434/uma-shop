@@ -26,7 +26,7 @@ interface Product {
   category: 'ฟิกเกอร์' | 'ตุ๊กตา' | 'พวงกุญแจ';
   price: number;
   status: 'พร้อมส่ง' | 'พรีออเดอร์' | 'สินค้าหมด';
-  images: string[]; // รองรับรูปภาพได้สูงสุด 5 รูป
+  images: string[]; // รองรับรูปภาพได้สูงสุด 5 รูปของสินค้าชิ้นนั้นๆ
   brand: string;
   lot: string;
   size: string;
@@ -48,13 +48,13 @@ const PRODUCTS: Product[] = [
     category: 'ฟิกเกอร์',
     price: 1290,
     status: 'พร้อมส่ง',
-    // ใส่ลิงก์รูปภาพได้สูงสุด 5 รูป (รูปแรกจะเป็นรูปปกหลัก)
+    // วางลิงก์รูปภาพทั้ง 5 มุมของ Special Week ที่นี่ (รูปแรกจะเป็นรูปหน้าปกหลัก)
     images: [
       'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1558679908-541bcf1249ff?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1613376023733-0a73315d9b06?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
     ],
     brand: 'Banpresto (Bandai Spirits)',
     lot: 'ลิขสิทธิ์แท้ 100% (Lot JP มีสติ๊กเกอร์แมวทอง)',
@@ -75,12 +75,13 @@ const PRODUCTS: Product[] = [
     category: 'ฟิกเกอร์',
     price: 1450,
     status: 'พร้อมส่ง',
+    // วางลิงก์รูปภาพทั้ง 5 มุมของ Tokai Teio ที่นี่
     images: [
       'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1558679908-541bcf1249ff?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1613376023733-0a73315d9b06?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
     ],
     brand: 'Kotobukiya',
     lot: 'ลิขสิทธิ์แท้ 100% (Lot JP)',
@@ -101,12 +102,13 @@ const PRODUCTS: Product[] = [
     category: 'ตุ๊กตา',
     price: 790,
     status: 'พร้อมส่ง',
+    // วางลิงก์รูปภาพทั้ง 5 มุมของ Oguri Cap ที่นี่
     images: [
       'https://images.unsplash.com/photo-1558679908-541bcf1249ff?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1613376023733-0a73315d9b06?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1558679908-541bcf1249ff?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1558679908-541bcf1249ff?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1558679908-541bcf1249ff?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1558679908-541bcf1249ff?auto=format&fit=crop&q=80&w=600',
     ],
     brand: 'SEGA Prize',
     lot: 'ลิขสิทธิ์แท้ 100% (ป้ายห้อยครบ)',
@@ -127,12 +129,13 @@ const PRODUCTS: Product[] = [
     category: 'พวงกุญแจ',
     price: 250,
     status: 'พรีออเดอร์',
+    // วางลิงก์รูปภาพทั้ง 5 มุมของ Manhattan Cafe ที่นี่
     images: [
       'https://images.unsplash.com/photo-1613376023733-0a73315d9b06?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1608889175123-8ee362201f81?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1558679908-541bcf1249ff?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1613376023733-0a73315d9b06?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1613376023733-0a73315d9b06?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1613376023733-0a73315d9b06?auto=format&fit=crop&q=80&w=600',
+      'https://images.unsplash.com/photo-1613376023733-0a73315d9b06?auto=format&fit=crop&q=80&w=600',
     ],
     brand: 'Cygames Official',
     lot: 'สั่งตรงจาก Cygames Store (JP)',
@@ -151,7 +154,7 @@ export default function UmaShopPage() {
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [activeImageIdx, setActiveImageIdx] = useState(0); // เก็บตำแหน่งรูปที่กำลังเลือกดู (0-4)
+  const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
 
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
@@ -172,7 +175,7 @@ export default function UmaShopPage() {
 
   const handleOpenProduct = (product: Product) => {
     setSelectedProduct(product);
-    setActiveImageIdx(0); // รีเซ็ตกลับไปรูปแรกเสมอเมื่อเปิดสินค้าใหม่
+    setActiveImageIdx(0);
     setCopiedLink(false);
   };
 
@@ -305,11 +308,12 @@ export default function UmaShopPage() {
               className="group cursor-pointer rounded-2xl bg-white border border-stone-200 overflow-hidden shadow-sm hover:shadow-lg transition flex flex-col justify-between"
             >
               <div>
-                <div className="relative aspect-square bg-stone-100 overflow-hidden">
+                {/* กรอบรูปขนาดเท่ากันทุกใบและเห็นเต็มตัว (object-contain) */}
+                <div className="relative aspect-square bg-white p-3 border-b border-stone-100 overflow-hidden">
                   <img
                     src={product.images[0]}
                     alt={product.name}
-                    className="h-full w-full object-cover group-hover:scale-105 transition duration-300"
+                    className="h-full w-full object-contain group-hover:scale-105 transition duration-300"
                   />
                   <span
                     className={`absolute top-3 left-3 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -353,11 +357,10 @@ export default function UmaShopPage() {
         </div>
       </main>
 
-      {/* Pop-up รายละเอียดสินค้า (พร้อมแกลเลอรี 5 รูป & ป้ายยืนยันร้านค้า) */}
+      {/* Pop-up รายละเอียดสินค้า (พร้อมแกลเลอรี 5 รูปขนาดเท่ากัน & ป้ายยืนยันร้านค้า) */}
       {selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl max-h-[92vh] overflow-y-auto p-6 md:p-8">
-            {/* ปุ่มปิด */}
             <button
               onClick={() => setSelectedProduct(null)}
               className="absolute right-4 top-4 z-10 rounded-full bg-stone-100 p-2 text-gray-600 hover:bg-stone-200"
@@ -365,7 +368,6 @@ export default function UmaShopPage() {
               <X className="h-5 w-5" />
             </button>
 
-            {/* ชื่อสินค้าด้านบนสุด */}
             <div className="pr-10 mb-5">
               <div className="flex items-center gap-2 text-xs text-emerald-700 font-semibold mb-1">
                 <span className="bg-emerald-100 px-2.5 py-0.5 rounded-full">
@@ -377,24 +379,24 @@ export default function UmaShopPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* ฝั่งซ้าย: รูปใหญ่ + แถบรูปย่อย 5 รูปด้านล่าง */}
+              {/* ฝั่งซ้าย: รูปใหญ่ขนาดเท่ากัน + แถบรูปย่อย 5 รูปด้านล่าง */}
               <div>
-                <div className="aspect-square w-full rounded-xl bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center">
+                <div className="aspect-square w-full rounded-xl bg-white border border-stone-200 p-4 overflow-hidden flex items-center justify-center">
                   <img
                     src={selectedProduct.images[activeImageIdx] || selectedProduct.images[0]}
                     alt={selectedProduct.name}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain"
                   />
                 </div>
 
-                {/* แถบรูปย่อย 5 รูป (Thumbnails) */}
+                {/* แถบรูปย่อย 5 รูป (Thumbnails) ขนาดเท่ากัน */}
                 <div className="grid grid-cols-5 gap-2 mt-3">
                   {selectedProduct.images.slice(0, 5).map((imgUrl, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => setActiveImageIdx(idx)}
-                      className={`aspect-square rounded-lg overflow-hidden border-2 transition ${
+                      className={`aspect-square rounded-lg bg-white p-1 overflow-hidden border-2 transition ${
                         activeImageIdx === idx
                           ? 'border-rose-600 ring-2 ring-rose-600/30 scale-[1.02]'
                           : 'border-stone-200 opacity-75 hover:opacity-100'
@@ -403,7 +405,7 @@ export default function UmaShopPage() {
                       <img
                         src={imgUrl}
                         alt={`มุมมองที่ ${idx + 1}`}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain"
                       />
                     </button>
                   ))}
@@ -441,7 +443,6 @@ export default function UmaShopPage() {
               {/* ฝั่งขวา: ตารางข้อมูลสินค้า สถานะ ป้ายยืนยันร้านค้า และปุ่มสั่งซื้อ */}
               <div className="flex flex-col justify-between">
                 <div>
-                  {/* คะแนนรีวิว */}
                   <div className="flex items-center gap-1.5 text-sm text-amber-500 mb-3">
                     <Star className="h-4 w-4 fill-amber-400" />
                     <span className="font-semibold text-gray-800">{selectedProduct.rating}</span>
@@ -450,7 +451,6 @@ export default function UmaShopPage() {
                     </span>
                   </div>
 
-                  {/* ตารางข้อมูลแบบเส้นประตามตัวอย่าง */}
                   <div className="divide-y divide-dashed divide-stone-200 border-y border-dashed border-stone-200 text-sm">
                     <div className="py-2.5 flex justify-between">
                       <span className="text-gray-500">หมวดหมู่</span>
@@ -486,7 +486,6 @@ export default function UmaShopPage() {
                     </div>
                   </div>
 
-                  {/* รายละเอียดสเปกฟิกเกอร์ */}
                   <div className="mt-4 rounded-xl bg-stone-50 p-3.5 border border-stone-200 space-y-1.5 text-xs">
                     <p className="text-gray-600 mb-2 leading-relaxed">{selectedProduct.description}</p>
                     <div className="flex justify-between">
@@ -509,7 +508,6 @@ export default function UmaShopPage() {
                     </div>
                   </div>
 
-                  {/* ป้ายยืนยันตัวตนร้านค้า (เหมือนในภาพตัวอย่าง) */}
                   <div className="mt-4 flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50/70 px-4 py-2.5">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600">
                       <BadgeCheck className="h-5 w-5" />
@@ -521,7 +519,6 @@ export default function UmaShopPage() {
                   </div>
                 </div>
 
-                {/* ปุ่มสั่งซื้อ หรือ แจ้งเตือนสินค้าหมด */}
                 <div className="mt-5 pt-4 border-t border-stone-100">
                   {selectedProduct.status === 'สินค้าหมด' ? (
                     <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 py-3 text-sm font-semibold text-amber-800">
@@ -590,7 +587,7 @@ export default function UmaShopPage() {
                       <img
                         src={product.images[0]}
                         alt={product.name}
-                        className="h-16 w-16 rounded-lg object-cover bg-gray-100"
+                        className="h-16 w-16 rounded-lg object-contain bg-white border border-stone-200 p-1"
                       />
                       <div className="flex-1">
                         <h4 className="text-sm font-semibold text-gray-800 line-clamp-1">
