@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { createClient, User } from '@supabase/supabase-js';
 import {
   Search,
@@ -35,16 +36,12 @@ import {
   Zap,
   ExternalLink,
   UserCircle2,
-  LogOut,
-  Mail,
-  Lock,
 } from 'lucide-react';
 
-const APP_VERSION = 'v3.1';
+const APP_VERSION = 'v3.2';
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 
-// เชื่อมต่อ Supabase Project ของคุณ (tracen-shop)
 const SUPABASE_URL = 'https://jwujhkuudfqpitouiqnw.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_EJM1vWSsz9qNrjRg20lx8A_M-FxsBMq';
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
@@ -229,15 +226,7 @@ function compressSlipImage(
 }
 
 export default function UmaShopPage() {
-  // ระบบบัญชีผู้ใช้ Supabase (เข้าสู่ระบบ / สมัครสมาชิกข้ามอุปกรณ์)
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authDisplayName, setAuthDisplayName] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
 
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
   const [selectedStatus, setSelectedStatus] = useState<'ทั้งหมด' | 'พร้อมส่ง' | 'พรีออเดอร์'>('ทั้งหมด');
@@ -256,17 +245,14 @@ export default function UmaShopPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  // ระบบปักหัวใจ (Wishlist)
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [isWishlistLoaded, setIsWishlistLoaded] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
 
-  // ระบบตะกร้าสินค้า
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // ข้อมูลสั่งซื้อและสลิป
   const [customerName, setCustomerName] = useState('');
   const [address, setAddress] = useState('');
   const [slipFileName, setSlipFileName] = useState<string | null>(null);
@@ -306,63 +292,6 @@ export default function UmaShopPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-    setAuthLoading(true);
-
-    try {
-      if (authMode === 'register') {
-        const { data, error } = await supabase.auth.signUp({
-          email: authEmail.trim(),
-          password: authPassword,
-          options: {
-            data: {
-              display_name: authDisplayName.trim() || authEmail.split('@')[0],
-            },
-          },
-        });
-
-        if (error) {
-          setAuthError(error.message);
-        } else if (data.user && !data.session) {
-          setAuthError('สมัครสำเร็จ! กรุณาเช็กอีเมลเพื่อกดยืนยัน หรือปิด Confirm email ใน Supabase');
-        } else {
-          showToast('สมัครสมาชิกและเข้าสู่ระบบเรียบร้อย!');
-          setIsAuthModalOpen(false);
-          setAuthEmail('');
-          setAuthPassword('');
-          setAuthDisplayName('');
-        }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: authEmail.trim(),
-          password: authPassword,
-        });
-
-        if (error) {
-          setAuthError('อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้งครับ');
-        } else {
-          showToast('เข้าสู่ระบบสำเร็จ!');
-          setIsAuthModalOpen(false);
-          setAuthEmail('');
-          setAuthPassword('');
-        }
-      }
-    } catch {
-      setAuthError('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่ครับ');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setCurrentUser(null);
-    setIsAuthModalOpen(false);
-    showToast('ออกจากระบบเรียบร้อยแล้ว');
-  };
-
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 320);
     window.addEventListener('scroll', onScroll);
@@ -376,7 +305,6 @@ export default function UmaShopPage() {
         setIsCartOpen(false);
         setIsWishlistOpen(false);
         setIsOrdersOpen(false);
-        setIsAuthModalOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -756,7 +684,6 @@ export default function UmaShopPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900 pb-24 md:pb-0">
-      {/* สไตล์กันหน้าแตกตอน CSS กำลังโหลด + แอนิเมชันพื้นหลังแบนเนอร์ */}
       <style jsx>{`
         svg {
           max-width: 24px;
@@ -823,7 +750,6 @@ export default function UmaShopPage() {
         }
       `}</style>
 
-      {/* 1. แถบเมนูด้านบน */}
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-2.5 sm:gap-4">
           <div
@@ -925,24 +851,20 @@ export default function UmaShopPage() {
               )}
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setAuthError(null);
-                setIsAuthModalOpen(true);
-              }}
+            <Link
+              href="/auth"
               className={`flex items-center gap-2 h-9 sm:h-10 rounded-2xl border px-3 sm:px-3.5 text-xs sm:text-sm font-semibold transition ${
                 currentUser
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
                   : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
-              title={currentUser ? `บัญชี: ${currentUser.email}` : 'เข้าสู่ระบบ / สมัครสมาชิก'}
+              title={currentUser ? `บัญชี: ${currentUser.email}` : 'เข้าสู่ระบบ / สมัครบัญชี'}
             >
               <UserCircle2 className="h-4 w-4 shrink-0" />
               <span className="max-w-[80px] sm:max-w-[110px] truncate">
                 {currentUser ? displayUserName : 'เข้าสู่ระบบ'}
               </span>
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -972,7 +894,6 @@ export default function UmaShopPage() {
         )}
       </header>
 
-      {/* 2. แบนเนอร์ร้านแบบพื้นหลังเคลื่อนไหว + ปุ่มสุ่มแนะนำสินค้า */}
       <section className="relative overflow-hidden banner-animated-bg text-white py-10 sm:py-14 lg:py-16 px-4 sm:px-6 lg:px-8">
         <div className="pointer-events-none absolute -top-16 -left-16 h-56 sm:h-72 w-56 sm:w-72 rounded-full bg-emerald-300/20 blur-3xl orb-1" />
         <div className="pointer-events-none absolute -bottom-24 right-8 h-64 sm:h-80 w-64 sm:w-80 rounded-full bg-teal-300/20 blur-3xl orb-2" />
@@ -1010,7 +931,6 @@ export default function UmaShopPage() {
         </div>
       </section>
 
-      {/* 3. แถบสรุปจุดเด่นของร้าน */}
       <div className="bg-white border-b border-slate-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 text-xs">
           <div className="flex items-center gap-3 text-slate-700">
@@ -1055,7 +975,6 @@ export default function UmaShopPage() {
         </div>
       </div>
 
-      {/* 4. พื้นที่แสดงรายการสินค้า */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 flex-1 w-full">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -1222,7 +1141,6 @@ export default function UmaShopPage() {
         )}
       </main>
 
-      {/* 5. ส่วนท้ายหน้าเว็บ (Footer) */}
       <footer className="bg-white border-t border-slate-200/80 py-6 sm:py-8 px-4 sm:px-6 lg:px-8 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
           <p className="font-semibold text-slate-700">
@@ -1232,7 +1150,6 @@ export default function UmaShopPage() {
         </div>
       </footer>
 
-      {/* แถบเมนูลัดด้านล่างสำหรับ iPhone / มือถือ */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-2 flex items-center justify-around shadow-lg">
         <button
           type="button"
@@ -1240,7 +1157,6 @@ export default function UmaShopPage() {
             setIsCartOpen(false);
             setIsWishlistOpen(false);
             setIsOrdersOpen(false);
-            setIsAuthModalOpen(false);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           className="flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-semibold text-emerald-700"
@@ -1290,19 +1206,17 @@ export default function UmaShopPage() {
           )}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setIsAuthModalOpen(true)}
+        <Link
+          href="/auth"
           className={`flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-medium ${
             currentUser ? 'text-emerald-700 font-bold' : 'text-slate-600'
           }`}
         >
           <UserCircle2 className="h-5 w-5" />
           <span>{currentUser ? 'บัญชีฉัน' : 'ล็อกอิน'}</span>
-        </button>
+        </Link>
       </nav>
 
-      {/* ปุ่มเลื่อนกลับขึ้นด้านบน */}
       {showScrollTop && (
         <button
           type="button"
@@ -1314,7 +1228,6 @@ export default function UmaShopPage() {
         </button>
       )}
 
-      {/* กล่องแจ้งเตือนสั้นๆ มุมล่างซ้าย (Toast) */}
       {toastMessage && (
         <div className="fixed bottom-20 md:bottom-6 left-4 sm:left-6 z-50 rounded-2xl bg-slate-900/95 text-white px-4 py-3 text-xs font-medium shadow-xl flex items-center gap-2.5 max-w-[85vw]">
           <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
@@ -1322,177 +1235,6 @@ export default function UmaShopPage() {
         </div>
       )}
 
-      {/* Pop-up เข้าสู่ระบบ / สมัครสมาชิก (Supabase Auth ข้ามอุปกรณ์) */}
-      {isAuthModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="relative w-full max-w-md rounded-3xl bg-white shadow-2xl p-6 sm:p-8 space-y-5">
-            <button
-              type="button"
-              onClick={() => setIsAuthModalOpen(false)}
-              className="absolute right-4 top-4 h-9 w-9 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            {currentUser ? (
-              <div className="space-y-5 pt-2">
-                <div className="flex items-center gap-3.5">
-                  <div className="h-14 w-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-extrabold text-xl shrink-0">
-                    {displayUserName.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
-                      เข้าสู่ระบบแล้ว (Supabase Cloud)
-                    </span>
-                    <h3 className="text-lg font-extrabold text-slate-900 truncate mt-1">
-                      {displayUserName}
-                    </h3>
-                    <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 text-xs space-y-2">
-                  <p className="text-slate-600 leading-relaxed">
-                    คุณสามารถใช้อีเมลและรหัสผ่านนี้ล็อกอินเข้าใช้งานบัญชีเดียวกันบน{' '}
-                    <span className="font-semibold text-slate-900">iPhone, iPad หรือคอมพิวเตอร์เครื่องอื่น</span>{' '}
-                    ได้ทันทีครับ
-                  </p>
-                  <p className="font-mono text-[11px] text-slate-400 truncate">
-                    User ID: {currentUser.id}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 py-3 text-sm font-bold text-rose-700 hover:bg-rose-100 transition"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>ออกจากระบบ</span>
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-5 pt-1">
-                <div>
-                  <h3 className="text-xl font-extrabold text-slate-900">
-                    {authMode === 'login' ? 'เข้าสู่ระบบ Tracen Collectibles' : 'สมัครสมาชิกใหม่'}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {authMode === 'login'
-                      ? 'ล็อกอินบัญชีของคุณเพื่อใช้งานข้ามอุปกรณ์'
-                      : 'สร้างบัญชีฟรีเพื่อซิงค์ข้อมูลและสั่งซื้อสินค้าข้ามเครื่อง'}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-slate-100 p-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMode('login');
-                      setAuthError(null);
-                    }}
-                    className={`rounded-xl py-2 text-xs font-bold transition ${
-                      authMode === 'login'
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    เข้าสู่ระบบ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMode('register');
-                      setAuthError(null);
-                    }}
-                    className={`rounded-xl py-2 text-xs font-bold transition ${
-                      authMode === 'register'
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    สมัครสมาชิกใหม่
-                  </button>
-                </div>
-
-                {authError && (
-                  <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 font-medium">
-                    {authError}
-                  </div>
-                )}
-
-                <form onSubmit={handleAuthSubmit} className="space-y-3.5">
-                  {authMode === 'register' && (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        ชื่อที่แสดง (ชื่อเล่น / ชื่อผู้รับ)
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="เช่น ไอซ์ อดิชาติ"
-                        value={authDisplayName}
-                        onChange={(e) => setAuthDisplayName(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:border-emerald-600 focus:outline-none"
-                      />
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">อีเมล</label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-                      <input
-                        type="email"
-                        required
-                        placeholder="example@gmail.com"
-                        value={authEmail}
-                        onChange={(e) => setAuthEmail(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 pl-10 pr-3.5 py-2.5 text-sm focus:border-emerald-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-                      <input
-                        type="password"
-                        required
-                        minLength={6}
-                        placeholder="••••••"
-                        value={authPassword}
-                        onChange={(e) => setAuthPassword(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 pl-10 pr-3.5 py-2.5 text-sm focus:border-emerald-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={authLoading}
-                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 transition disabled:opacity-60 shadow-sm"
-                  >
-                    {authLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>กำลังดำเนินการ...</span>
-                      </>
-                    ) : (
-                      <span>{authMode === 'login' ? 'เข้าสู่ระบบ' : 'สร้างบัญชีสมาชิก'}</span>
-                    )}
-                  </button>
-                </form>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Pop-up รายละเอียดสินค้า */}
       {selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 sm:p-5 backdrop-blur-xs">
           <div className="relative w-full sm:max-w-3xl lg:max-w-4xl rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl max-h-[92vh] overflow-y-auto p-5 sm:p-7 lg:p-9">
@@ -1738,7 +1480,6 @@ export default function UmaShopPage() {
         </div>
       )}
 
-      {/* แถบประวัติคำสั่งซื้อล่าสุดในเครื่อง */}
       {isOrdersOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs">
           <div className="w-full sm:max-w-md bg-white h-full shadow-2xl flex flex-col justify-between p-5 sm:p-6 overflow-y-auto">
@@ -1803,7 +1544,6 @@ export default function UmaShopPage() {
         </div>
       )}
 
-      {/* แถบรายการที่ถูกใจ (Wishlist) */}
       {isWishlistOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs">
           <div className="w-full sm:max-w-md bg-white h-full shadow-2xl flex flex-col justify-between p-5 sm:p-6 overflow-y-auto">
@@ -1873,7 +1613,6 @@ export default function UmaShopPage() {
         </div>
       )}
 
-      {/* แถบตะกร้าสินค้า + แนบสลิปโอนเงิน */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs">
           <div className="w-full sm:max-w-md bg-white h-full shadow-2xl flex flex-col justify-between p-5 sm:p-6 overflow-y-auto">
