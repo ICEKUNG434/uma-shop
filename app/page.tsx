@@ -25,8 +25,12 @@ import {
   Truck,
   Sparkles,
   RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Tag,
 } from 'lucide-react';
 
+const APP_VERSION = 'v1.5.1';
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 
@@ -202,13 +206,13 @@ function compressSlipImage(
 
 export default function UmaShopPage() {
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
+  const [selectedStatus, setSelectedStatus] = useState<'ทั้งหมด' | 'พร้อมส่ง' | 'พรีออเดอร์'>('ทั้งหมด');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc' | 'rating'>('default');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // ลูกเล่นแจ้งเตือนสั้นๆ มุมล่างซ้าย + ปุ่มเลื่อนกลับด้านบน
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
@@ -351,14 +355,16 @@ export default function UmaShopPage() {
   }, [cart, isCartLoaded]);
 
   const categories = ['ทั้งหมด', 'ฟิกเกอร์', 'ตุ๊กตา', 'พวงกุญแจ'];
+  const statuses: ('ทั้งหมด' | 'พร้อมส่ง' | 'พรีออเดอร์')[] = ['ทั้งหมด', 'พร้อมส่ง', 'พรีออเดอร์'];
 
   const filteredProducts = PRODUCTS.filter((item) => {
     const matchCategory = selectedCategory === 'ทั้งหมด' || item.category === selectedCategory;
+    const matchStatus = selectedStatus === 'ทั้งหมด' || item.status === selectedStatus;
     const matchSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.character.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.jpName.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCategory && matchSearch;
+    return matchCategory && matchStatus && matchSearch;
   }).sort((a, b) => {
     if (sortBy === 'price-asc') return a.price - b.price;
     if (sortBy === 'price-desc') return b.price - a.price;
@@ -385,6 +391,22 @@ export default function UmaShopPage() {
     setSelectedProduct(product);
     setActiveImageIdx(0);
     setCopiedLink(false);
+  };
+
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedProduct) return;
+    setActiveImageIdx((prev) =>
+      prev === 0 ? selectedProduct.images.length - 1 : prev - 1
+    );
+  };
+
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedProduct) return;
+    setActiveImageIdx((prev) =>
+      prev === selectedProduct.images.length - 1 ? 0 : prev + 1
+    );
   };
 
   const handleCopyShareLink = (productId: string) => {
@@ -543,6 +565,67 @@ export default function UmaShopPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-stone-50 text-gray-900">
+      {/* แอนิเมชันสำหรับพื้นหลังแบนเนอร์เคลื่อนไหว */}
+      <style jsx>{`
+        @keyframes gradientWave {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
+        }
+        @keyframes floatSlow {
+          0%, 100% {
+            transform: translateY(0px) translateX(0px) scale(1);
+          }
+          50% {
+            transform: translateY(-18px) translateX(14px) scale(1.06);
+          }
+        }
+        @keyframes floatReverse {
+          0%, 100% {
+            transform: translateY(0px) translateX(0px) scale(1);
+          }
+          50% {
+            transform: translateY(16px) translateX(-16px) scale(1.08);
+          }
+        }
+        @keyframes twinkle {
+          0%, 100% {
+            opacity: 0.25;
+            transform: scale(0.85);
+          }
+          50% {
+            opacity: 0.95;
+            transform: scale(1.25);
+          }
+        }
+        .banner-animated-bg {
+          background: linear-gradient(-45deg, #064e3b, #0f766e, #047857, #115e59, #065f46);
+          background-size: 300% 300%;
+          animation: gradientWave 10s ease infinite;
+        }
+        .orb-1 {
+          animation: floatSlow 7s ease-in-out infinite;
+        }
+        .orb-2 {
+          animation: floatReverse 9s ease-in-out infinite;
+        }
+        .sparkle-1 {
+          animation: twinkle 3.2s ease-in-out infinite;
+        }
+        .sparkle-2 {
+          animation: twinkle 4.5s ease-in-out infinite 1.1s;
+        }
+        .sparkle-3 {
+          animation: twinkle 3.8s ease-in-out infinite 2s;
+        }
+      `}</style>
+
       {/* แถบเมนูด้านบน */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-stone-200 shadow-xs">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
@@ -551,9 +634,14 @@ export default function UmaShopPage() {
               U
             </span>
             <div>
-              <span className="font-bold text-lg text-emerald-950 block leading-none">
-                Tracen Collectibles
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-lg text-emerald-950 leading-none">
+                  Tracen Collectibles
+                </span>
+                <span className="rounded-md bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[10px] font-bold">
+                  {APP_VERSION}
+                </span>
+              </div>
               <span className="text-[11px] text-emerald-700 font-medium">
                 Uma Musume Figures & Goods
               </span>
@@ -616,14 +704,24 @@ export default function UmaShopPage() {
         </div>
       </header>
 
-      {/* แบนเนอร์ร้าน */}
-      <section className="bg-gradient-to-r from-emerald-800 via-teal-700 to-emerald-900 text-white py-12 px-4">
-        <div className="max-w-6xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-xs">
-            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+      {/* แบนเนอร์ร้านแบบพื้นหลังขยับเคลื่อนไหวได้ */}
+      <section className="relative overflow-hidden banner-animated-bg text-white py-14 px-4">
+        {/* วงแสงฟุ้งลอยตัว */}
+        <div className="pointer-events-none absolute -top-16 -left-16 h-64 w-64 rounded-full bg-emerald-300/20 blur-3xl orb-1" />
+        <div className="pointer-events-none absolute -bottom-20 right-10 h-72 w-72 rounded-full bg-teal-300/20 blur-3xl orb-2" />
+        <div className="pointer-events-none absolute top-6 right-1/3 h-40 w-40 rounded-full bg-amber-200/15 blur-2xl orb-1" />
+
+        {/* ละอองประกายดาววิบวับ */}
+        <span className="pointer-events-none absolute top-8 right-24 h-2 w-2 rounded-full bg-amber-300 sparkle-1" />
+        <span className="pointer-events-none absolute bottom-10 right-1/4 h-2.5 w-2.5 rounded-full bg-emerald-200 sparkle-2" />
+        <span className="pointer-events-none absolute top-14 left-1/2 h-1.5 w-1.5 rounded-full bg-white sparkle-3" />
+
+        <div className="relative z-10 max-w-6xl mx-auto space-y-3">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 border border-white/20 px-3.5 py-1 text-xs font-medium backdrop-blur-xs">
+            <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
             <span>สินค้าลิขสิทธิ์แท้จากญี่ปุ่น 100% คัดสภาพกล่องทุกชิ้น</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight drop-shadow-xs">
             ศูนย์รวมฟิกเกอร์และของสะสม Uma Musume: Pretty Derby
           </h1>
           <p className="text-emerald-100 text-sm md:text-base max-w-2xl">
@@ -694,7 +792,7 @@ export default function UmaShopPage() {
       {/* รายการสินค้า */}
       <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex flex-wrap items-center gap-2">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -706,6 +804,23 @@ export default function UmaShopPage() {
                 }`}
               >
                 {cat}
+              </button>
+            ))}
+
+            <div className="h-5 w-px bg-stone-200 mx-1 hidden sm:block" />
+
+            {statuses.map((st) => (
+              <button
+                key={st}
+                onClick={() => setSelectedStatus(st)}
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition ${
+                  selectedStatus === st
+                    ? 'bg-teal-700 text-white'
+                    : 'bg-white text-gray-500 border border-stone-200 hover:bg-stone-100'
+                }`}
+              >
+                <Tag className="h-3 w-3" />
+                <span>{st === 'ทั้งหมด' ? 'ทุกสถานะ' : st}</span>
               </button>
             ))}
           </div>
@@ -735,6 +850,7 @@ export default function UmaShopPage() {
               type="button"
               onClick={() => {
                 setSelectedCategory('ทั้งหมด');
+                setSelectedStatus('ทั้งหมด');
                 setSearchQuery('');
                 setSortBy('default');
               }}
@@ -810,9 +926,21 @@ export default function UmaShopPage() {
                     <span className="text-lg font-bold text-rose-700">
                       ฿{product.price.toLocaleString()}
                     </span>
-                    <span className="text-xs font-semibold text-emerald-700 group-hover:underline">
-                      ดูรายละเอียด →
-                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (product.status !== 'สินค้าหมด') {
+                          handleAddToCart(product, false);
+                        }
+                      }}
+                      disabled={product.status === 'สินค้าหมด'}
+                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-2.5 py-1.5 text-xs font-semibold transition disabled:opacity-40"
+                      title="เพิ่มลงตะกร้าด่วน"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>ใส่ตะกร้า</span>
+                    </button>
                   </div>
                 </div>
               );
@@ -825,7 +953,7 @@ export default function UmaShopPage() {
       <footer className="bg-white border-t border-stone-200 py-6 px-4 text-xs text-gray-500">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="font-medium text-gray-700">
-            Tracen Collectibles — ศูนย์รวมฟิกเกอร์และของสะสม Uma Musume ลิขสิทธิ์แท้
+            Tracen Collectibles ({APP_VERSION}) — ศูนย์รวมฟิกเกอร์และของสะสม Uma Musume ลิขสิทธิ์แท้
           </p>
           <p>จัดส่งทั่วประเทศ • แพ็กกันกระแทกทุกคำสั่งซื้อ</p>
         </div>
@@ -874,12 +1002,32 @@ export default function UmaShopPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <div className="aspect-square w-full rounded-xl bg-white border border-stone-200 p-4 overflow-hidden flex items-center justify-center">
+                <div className="relative aspect-square w-full rounded-xl bg-white border border-stone-200 p-4 overflow-hidden flex items-center justify-center">
                   <img
                     src={selectedProduct.images[activeImageIdx] || selectedProduct.images[0]}
                     alt={selectedProduct.name}
                     className="h-full w-full object-contain"
                   />
+                  {selectedProduct.images.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handlePrevImage}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border border-stone-200 p-1.5 text-gray-700 shadow-xs hover:bg-white transition"
+                        title="รูปก่อนหน้า"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleNextImage}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border border-stone-200 p-1.5 text-gray-700 shadow-xs hover:bg-white transition"
+                        title="รูปถัดไป"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-5 gap-2 mt-3">
