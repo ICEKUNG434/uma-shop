@@ -28,9 +28,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Tag,
+  Home,
 } from 'lucide-react';
 
-const APP_VERSION = 'v1.5.1';
+const APP_VERSION = 'v1.6';
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 
@@ -213,6 +214,8 @@ export default function UmaShopPage() {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // สถานะสำหรับมือถือ/แท็บเล็ต
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
@@ -250,6 +253,19 @@ export default function UmaShopPage() {
     };
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // รองรับการกด Esc เพื่อปิดหน้าต่างบน Notebook / iPad
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedProduct(null);
+        setIsCartOpen(false);
+        setIsWishlistOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   const applySlipFile = async (file: File) => {
@@ -314,7 +330,7 @@ export default function UmaShopPage() {
       }
       alert('ไม่พบรูปภาพในคลิปบอร์ด กรุณาแคปหน้าจอหรือก๊อปปี้รูปสลิปก่อนกดวางครับ');
     } catch {
-      alert('เบราว์เซอร์ไม่อนุญาตให้เข้าถึงคลิปบอร์ดผ่านปุ่ม กรุณากด Ctrl + V บนคีย์บอร์ดแทนครับ');
+      alert('อุปกรณ์นี้ไม่อนุญาตให้วางผ่านปุ่ม กรุณากดปุ่ม "เลือกรูปสลิป" หรือกด Ctrl + V แทนครับ');
     }
   };
 
@@ -564,7 +580,7 @@ export default function UmaShopPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 text-gray-900">
+    <div className="min-h-screen flex flex-col bg-stone-50 text-gray-900 pb-16 md:pb-0">
       {/* แอนิเมชันสำหรับพื้นหลังแบนเนอร์เคลื่อนไหว */}
       <style jsx>{`
         @keyframes gradientWave {
@@ -626,29 +642,33 @@ export default function UmaShopPage() {
         }
       `}</style>
 
-      {/* แถบเมนูด้านบน */}
+      {/* แถบเมนูด้านบน (รองรับ iPhone / iPad / Notebook) */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-stone-200 shadow-xs">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <span className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold flex items-center justify-center shadow-xs">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+          <div
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex items-center gap-2 sm:gap-2.5 cursor-pointer shrink-0"
+          >
+            <span className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold flex items-center justify-center shadow-xs text-sm sm:text-base">
               U
             </span>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-lg text-emerald-950 leading-none">
+                <span className="font-bold text-base sm:text-lg text-emerald-950 leading-none">
                   Tracen Collectibles
                 </span>
                 <span className="rounded-md bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[10px] font-bold">
                   {APP_VERSION}
                 </span>
               </div>
-              <span className="text-[11px] text-emerald-700 font-medium">
+              <span className="hidden xs:block sm:block text-[10px] sm:text-[11px] text-emerald-700 font-medium">
                 Uma Musume Figures & Goods
               </span>
             </div>
           </div>
 
-          <div className="relative flex-1 max-w-md hidden sm:block">
+          {/* ช่องค้นหาสำหรับ iPad และ Notebook */}
+          <div className="relative flex-1 max-w-md hidden md:block">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <input
               type="text"
@@ -669,10 +689,21 @@ export default function UmaShopPage() {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* ปุ่มด้านขวาบน */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* ปุ่มเปิดช่องค้นหาบน iPhone / iPad แนวตั้ง */}
+            <button
+              type="button"
+              onClick={() => setIsMobileSearchOpen((prev) => !prev)}
+              className="md:hidden flex items-center justify-center rounded-full border border-stone-200 bg-white p-2 text-gray-700 hover:bg-stone-100 transition"
+              title="ค้นหาสินค้า"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+
             <button
               onClick={() => setIsWishlistOpen(true)}
-              className="relative flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition"
+              className="relative flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-2.5 sm:px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition"
               title="รายการที่ปักหัวใจไว้"
             >
               <Heart
@@ -680,9 +711,9 @@ export default function UmaShopPage() {
                   wishlistIds.length > 0 ? 'fill-rose-500 text-rose-500' : 'text-gray-500'
                 }`}
               />
-              <span className="hidden md:inline">ถูกใจ</span>
+              <span className="hidden lg:inline">ถูกใจ</span>
               {wishlistIds.length > 0 && (
-                <span className="rounded-full bg-rose-100 text-rose-700 px-1.5 py-0.5 text-xs font-bold">
+                <span className="rounded-full bg-rose-100 text-rose-700 px-1.5 py-0.5 text-[11px] font-bold">
                   {wishlistIds.length}
                 </span>
               )}
@@ -690,51 +721,75 @@ export default function UmaShopPage() {
 
             <button
               onClick={() => setIsCartOpen(true)}
-              className="flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition shadow-xs"
+              className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-emerald-600 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white hover:bg-emerald-700 transition shadow-xs"
             >
               <ShoppingBag className="h-4 w-4" />
-              <span>ตะกร้า</span>
+              <span className="hidden sm:inline">ตะกร้า</span>
               {totalItems > 0 && (
-                <span className="rounded-full bg-rose-600 px-2 py-0.5 text-xs font-bold">
+                <span className="rounded-full bg-rose-600 px-1.5 sm:px-2 py-0.5 text-[11px] font-bold">
                   {totalItems}
                 </span>
               )}
             </button>
           </div>
         </div>
+
+        {/* แถบค้นหาแบบเลื่อนเปิดบน iPhone / iPad แนวตั้ง */}
+        {isMobileSearchOpen && (
+          <div className="md:hidden px-3 pb-3 bg-white border-t border-stone-100">
+            <div className="relative mt-2">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                autoFocus
+                placeholder="พิมพ์ชื่อตัวละคร เช่น Special Week, Oguri..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl bg-stone-100 pl-9 pr-8 py-2 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-2.5 text-gray-400"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
-      {/* แบนเนอร์ร้านแบบพื้นหลังขยับเคลื่อนไหวได้ */}
-      <section className="relative overflow-hidden banner-animated-bg text-white py-14 px-4">
-        {/* วงแสงฟุ้งลอยตัว */}
-        <div className="pointer-events-none absolute -top-16 -left-16 h-64 w-64 rounded-full bg-emerald-300/20 blur-3xl orb-1" />
-        <div className="pointer-events-none absolute -bottom-20 right-10 h-72 w-72 rounded-full bg-teal-300/20 blur-3xl orb-2" />
-        <div className="pointer-events-none absolute top-6 right-1/3 h-40 w-40 rounded-full bg-amber-200/15 blur-2xl orb-1" />
+      {/* แบนเนอร์ร้านแบบพื้นหลังเคลื่อนไหว (ปรับสัดส่วนตามขนาดจอ) */}
+      <section className="relative overflow-hidden banner-animated-bg text-white py-8 sm:py-12 lg:py-14 px-4 sm:px-6">
+        <div className="pointer-events-none absolute -top-16 -left-16 h-48 sm:h-64 w-48 sm:w-64 rounded-full bg-emerald-300/20 blur-3xl orb-1" />
+        <div className="pointer-events-none absolute -bottom-20 right-10 h-56 sm:h-72 w-56 sm:w-72 rounded-full bg-teal-300/20 blur-3xl orb-2" />
+        <div className="pointer-events-none absolute top-6 right-1/3 h-32 sm:h-40 w-32 sm:w-40 rounded-full bg-amber-200/15 blur-2xl orb-1" />
 
-        {/* ละอองประกายดาววิบวับ */}
-        <span className="pointer-events-none absolute top-8 right-24 h-2 w-2 rounded-full bg-amber-300 sparkle-1" />
+        <span className="pointer-events-none absolute top-8 right-12 sm:right-24 h-2 w-2 rounded-full bg-amber-300 sparkle-1" />
         <span className="pointer-events-none absolute bottom-10 right-1/4 h-2.5 w-2.5 rounded-full bg-emerald-200 sparkle-2" />
         <span className="pointer-events-none absolute top-14 left-1/2 h-1.5 w-1.5 rounded-full bg-white sparkle-3" />
 
-        <div className="relative z-10 max-w-6xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 border border-white/20 px-3.5 py-1 text-xs font-medium backdrop-blur-xs">
-            <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
+        <div className="relative z-10 max-w-7xl mx-auto space-y-2.5 sm:space-y-3">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 border border-white/20 px-3 py-1 text-[11px] sm:text-xs font-medium backdrop-blur-xs">
+            <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse shrink-0" />
             <span>สินค้าลิขสิทธิ์แท้จากญี่ปุ่น 100% คัดสภาพกล่องทุกชิ้น</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight drop-shadow-xs">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight drop-shadow-xs leading-snug">
             ศูนย์รวมฟิกเกอร์และของสะสม Uma Musume: Pretty Derby
           </h1>
-          <p className="text-emerald-100 text-sm md:text-base max-w-2xl">
+          <p className="text-emerald-100 text-xs sm:text-sm lg:text-base max-w-2xl leading-relaxed">
             คัดสรรงานแท้ทั้งมือ 1 ในซีล และของสะสมหายากจากค่ายชั้นนำ แพ็กบับเบิลหนาพิเศษ ส่งไวทั่วไทย
           </p>
         </div>
       </section>
 
-      {/* แถบสรุปจุดเด่นของร้าน (Trust Badges Bar) */}
+      {/* แถบสรุปจุดเด่นของร้าน (2 คอลัมน์บนมือถือ • 4 คอลัมน์บน iPad/Notebook) */}
       <div className="bg-white border-b border-stone-200">
-        <div className="max-w-6xl mx-auto px-4 py-3.5 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <div className="flex items-center gap-2.5 text-gray-700">
-            <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-3.5 grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 text-[11px] sm:text-xs">
+          <div className="flex items-center gap-2 text-gray-700">
+            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
               <ShieldCheck className="h-4 w-4" />
             </div>
             <div>
@@ -743,8 +798,8 @@ export default function UmaShopPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 text-gray-700">
-            <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-2 text-gray-700">
+            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
               <PackageCheck className="h-4 w-4" />
             </div>
             <div>
@@ -753,8 +808,8 @@ export default function UmaShopPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 text-gray-700">
-            <div className="h-8 w-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-2 text-gray-700">
+            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
               <Truck className="h-4 w-4" />
             </div>
             <div>
@@ -763,41 +818,27 @@ export default function UmaShopPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 text-gray-700">
-            <div className="h-8 w-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-2 text-gray-700">
+            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center shrink-0">
               <CreditCard className="h-4 w-4" />
             </div>
             <div>
               <p className="font-bold text-gray-900">แนบสลิปง่าย</p>
-              <p className="text-gray-500">รองรับ Ctrl+V วางรูป</p>
+              <p className="text-gray-500">รองรับมือถือ & Ctrl+V</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ช่องค้นหาบนมือถือ */}
-      <div className="sm:hidden px-4 pt-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="ค้นหาชื่อตัวละคร เช่น Special Week..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl bg-white border border-stone-200 pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-        </div>
-      </div>
-
-      {/* รายการสินค้า */}
-      <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div className="flex flex-wrap items-center gap-2">
+      {/* รายการสินค้า (iPhone: 2 คอลัมน์ • iPad: 3 คอลัมน์ • Notebook: 4 คอลัมน์) */}
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-8 flex-1 w-full">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5 sm:mb-6">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition shrink-0 ${
+                className={`rounded-full px-3.5 sm:px-4 py-1.5 text-xs sm:text-sm font-medium transition shrink-0 ${
                   selectedCategory === cat
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'bg-white text-gray-600 border border-stone-200 hover:bg-stone-100'
@@ -807,13 +848,13 @@ export default function UmaShopPage() {
               </button>
             ))}
 
-            <div className="h-5 w-px bg-stone-200 mx-1 hidden sm:block" />
+            <div className="h-5 w-px bg-stone-200 mx-1 shrink-0" />
 
             {statuses.map((st) => (
               <button
                 key={st}
                 onClick={() => setSelectedStatus(st)}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition ${
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition shrink-0 ${
                   selectedStatus === st
                     ? 'bg-teal-700 text-white'
                     : 'bg-white text-gray-500 border border-stone-200 hover:bg-stone-100'
@@ -825,11 +866,11 @@ export default function UmaShopPage() {
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between lg:justify-end gap-3">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none"
+              className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs sm:text-sm text-gray-700 focus:border-emerald-500 focus:outline-none"
               aria-label="เรียงลำดับสินค้า"
             >
               <option value="default">เรียงตาม: แนะนำ</option>
@@ -837,13 +878,15 @@ export default function UmaShopPage() {
               <option value="price-desc">ราคา: มาก → น้อย</option>
               <option value="rating">คะแนนรีวิวสูงสุด</option>
             </select>
-            <span className="text-sm text-gray-500">แสดง {filteredProducts.length} รายการ</span>
+            <span className="text-xs sm:text-sm text-gray-500 shrink-0">
+              แสดง {filteredProducts.length} รายการ
+            </span>
           </div>
         </div>
 
         {filteredProducts.length === 0 ? (
-          <div className="rounded-2xl bg-white border border-stone-200 p-12 text-center space-y-3">
-            <p className="text-gray-600 font-medium">
+          <div className="rounded-2xl bg-white border border-stone-200 p-10 sm:p-12 text-center space-y-3">
+            <p className="text-sm sm:text-base text-gray-600 font-medium">
               ไม่พบสินค้าที่ตรงกับเงื่อนไขการค้นหาหรือหมวดหมู่ที่เลือกครับ
             </p>
             <button
@@ -854,31 +897,31 @@ export default function UmaShopPage() {
                 setSearchQuery('');
                 setSortBy('default');
               }}
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition"
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-xs sm:text-sm font-medium text-white hover:bg-emerald-700 transition"
             >
               <RotateCcw className="h-4 w-4" />
               <span>ล้างตัวกรองทั้งหมด</span>
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 lg:gap-6">
             {filteredProducts.map((product) => {
               const isLiked = wishlistIds.includes(product.id);
               return (
                 <div
                   key={product.id}
                   onClick={() => handleOpenProduct(product)}
-                  className="group cursor-pointer rounded-2xl bg-white border border-stone-200 overflow-hidden shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition duration-200 flex flex-col justify-between"
+                  className="group cursor-pointer rounded-xl sm:rounded-2xl bg-white border border-stone-200 overflow-hidden shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition duration-200 flex flex-col justify-between"
                 >
                   <div>
-                    <div className="relative aspect-square bg-white p-3 border-b border-stone-100 overflow-hidden">
+                    <div className="relative aspect-square bg-white p-2 sm:p-3 border-b border-stone-100 overflow-hidden">
                       <img
                         src={product.images[0]}
                         alt={product.name}
                         className="h-full w-full object-contain group-hover:scale-105 transition duration-300"
                       />
                       <span
-                        className={`absolute top-3 left-3 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        className={`absolute top-2 left-2 sm:top-3 sm:left-3 rounded-full px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-xs font-semibold ${
                           product.status === 'พร้อมส่ง'
                             ? 'bg-emerald-600 text-white'
                             : product.status === 'พรีออเดอร์'
@@ -892,11 +935,11 @@ export default function UmaShopPage() {
                       <button
                         type="button"
                         onClick={(e) => handleToggleWishlist(product, e)}
-                        className="absolute top-2.5 right-2.5 z-10 rounded-full bg-white/95 p-2 shadow-xs border border-stone-200 hover:scale-110 transition"
+                        className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 z-10 rounded-full bg-white/95 p-1.5 sm:p-2 shadow-xs border border-stone-200 hover:scale-110 transition"
                         title={isLiked ? 'เอาออกจากรายการที่ถูกใจ' : 'ปักหัวใจเก็บไว้ดูทีหลัง'}
                       >
                         <Heart
-                          className={`h-4 w-4 transition ${
+                          className={`h-3.5 w-3.5 sm:h-4 sm:w-4 transition ${
                             isLiked
                               ? 'fill-rose-500 text-rose-500'
                               : 'text-gray-400 hover:text-rose-500'
@@ -904,26 +947,28 @@ export default function UmaShopPage() {
                         />
                       </button>
 
-                      <span className="absolute bottom-2 right-2 rounded bg-black/65 px-2 py-0.5 text-[11px] text-white">
+                      <span className="absolute bottom-1.5 right-1.5 sm:bottom-2 sm:right-2 rounded bg-black/65 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] text-white">
                         {product.images.length} รูป
                       </span>
                     </div>
 
-                    <div className="p-4">
-                      <p className="text-xs text-emerald-700 font-semibold">{product.character}</p>
-                      <h3 className="font-bold text-gray-900 mt-1 line-clamp-2 group-hover:text-emerald-700 transition">
+                    <div className="p-2.5 sm:p-4">
+                      <p className="text-[11px] sm:text-xs text-emerald-700 font-semibold truncate">
+                        {product.character}
+                      </p>
+                      <h3 className="font-bold text-xs sm:text-sm lg:text-base text-gray-900 mt-0.5 sm:mt-1 line-clamp-2 group-hover:text-emerald-700 transition leading-snug">
                         {product.name}
                       </h3>
-                      <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
-                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                      <div className="flex items-center gap-1 mt-1.5 sm:mt-2 text-[11px] sm:text-xs text-gray-500">
+                        <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-amber-400 text-amber-400" />
                         <span className="font-medium text-gray-700">{product.rating}</span>
                         <span>({product.reviewsCount})</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="px-4 pb-4 pt-2.5 flex items-center justify-between border-t border-stone-100">
-                    <span className="text-lg font-bold text-rose-700">
+                  <div className="px-2.5 sm:px-4 pb-2.5 sm:pb-4 pt-2 flex items-center justify-between gap-1 border-t border-stone-100">
+                    <span className="text-sm sm:text-lg font-bold text-rose-700">
                       ฿{product.price.toLocaleString()}
                     </span>
                     <button
@@ -935,10 +980,10 @@ export default function UmaShopPage() {
                         }
                       }}
                       disabled={product.status === 'สินค้าหมด'}
-                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-2.5 py-1.5 text-xs font-semibold transition disabled:opacity-40"
+                      className="inline-flex items-center gap-0.5 sm:gap-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 px-2 sm:px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold transition disabled:opacity-40"
                       title="เพิ่มลงตะกร้าด่วน"
                     >
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                       <span>ใส่ตะกร้า</span>
                     </button>
                   </div>
@@ -950,59 +995,121 @@ export default function UmaShopPage() {
       </main>
 
       {/* ส่วนท้ายหน้าเว็บ (Footer) */}
-      <footer className="bg-white border-t border-stone-200 py-6 px-4 text-xs text-gray-500">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <footer className="bg-white border-t border-stone-200 py-5 sm:py-6 px-4 text-xs text-gray-500">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
           <p className="font-medium text-gray-700">
             Tracen Collectibles ({APP_VERSION}) — ศูนย์รวมฟิกเกอร์และของสะสม Uma Musume ลิขสิทธิ์แท้
           </p>
-          <p>จัดส่งทั่วประเทศ • แพ็กกันกระแทกทุกคำสั่งซื้อ</p>
+          <p>รองรับ iPhone • iPad • Notebook • PC</p>
         </div>
       </footer>
+
+      {/* แถบเมนูลัดด้านล่างสำหรับ iPhone / มือถือโดยเฉพาะ */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-stone-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
+        <button
+          type="button"
+          onClick={() => {
+            setIsCartOpen(false);
+            setIsWishlistOpen(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className="flex flex-col items-center gap-0.5 px-3 py-1 text-[11px] font-medium text-emerald-700"
+        >
+          <Home className="h-5 w-5" />
+          <span>หน้าแรก</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setIsMobileSearchOpen(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className="flex flex-col items-center gap-0.5 px-3 py-1 text-[11px] font-medium text-gray-600 hover:text-emerald-700"
+        >
+          <Search className="h-5 w-5" />
+          <span>ค้นหา</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsWishlistOpen(true)}
+          className="relative flex flex-col items-center gap-0.5 px-3 py-1 text-[11px] font-medium text-gray-600 hover:text-rose-600"
+        >
+          <Heart
+            className={`h-5 w-5 ${
+              wishlistIds.length > 0 ? 'fill-rose-500 text-rose-500' : ''
+            }`}
+          />
+          <span>ถูกใจ</span>
+          {wishlistIds.length > 0 && (
+            <span className="absolute top-0.5 right-2 rounded-full bg-rose-500 text-white px-1.5 text-[10px] font-bold">
+              {wishlistIds.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsCartOpen(true)}
+          className="relative flex flex-col items-center gap-0.5 px-3 py-1 text-[11px] font-medium text-gray-600 hover:text-emerald-700"
+        >
+          <ShoppingBag className="h-5 w-5" />
+          <span>ตะกร้า</span>
+          {totalItems > 0 && (
+            <span className="absolute top-0.5 right-2 rounded-full bg-emerald-600 text-white px-1.5 text-[10px] font-bold">
+              {totalItems}
+            </span>
+          )}
+        </button>
+      </nav>
 
       {/* ปุ่มเลื่อนกลับขึ้นด้านบน (Back to Top) */}
       {showScrollTop && (
         <button
           type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-5 right-5 z-30 rounded-full bg-emerald-700 p-3 text-white shadow-lg hover:bg-emerald-800 transition"
+          className="fixed bottom-18 md:bottom-5 right-4 sm:right-5 z-30 rounded-full bg-emerald-700 p-2.5 sm:p-3 text-white shadow-lg hover:bg-emerald-800 transition"
           title="เลื่อนกลับขึ้นด้านบน"
         >
-          <ArrowUp className="h-5 w-5" />
+          <ArrowUp className="h-4 w-4 sm:h-5 sm:w-5" />
         </button>
       )}
 
       {/* กล่องแจ้งเตือนสั้นๆ มุมล่างซ้าย (Toast) */}
       {toastMessage && (
-        <div className="fixed bottom-5 left-5 z-50 rounded-xl bg-gray-900/95 text-white px-4 py-2.5 text-xs font-medium shadow-lg flex items-center gap-2">
+        <div className="fixed bottom-18 md:bottom-5 left-4 sm:left-5 z-50 rounded-xl bg-gray-900/95 text-white px-3.5 py-2 text-xs font-medium shadow-lg flex items-center gap-2 max-w-[85vw]">
           <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-          <span>{toastMessage}</span>
+          <span className="truncate">{toastMessage}</span>
         </div>
       )}
 
-      {/* Pop-up รายละเอียดสินค้า */}
+      {/* Pop-up รายละเอียดสินค้า (เต็มจอบนมือถือ • 2 คอลัมน์บน iPad แนวนอน & Notebook) */}
       {selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl max-h-[92vh] overflow-y-auto p-6 md:p-8">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 sm:p-4 backdrop-blur-xs">
+          <div className="relative w-full sm:max-w-3xl lg:max-w-4xl rounded-t-3xl sm:rounded-2xl bg-white shadow-2xl max-h-[92vh] overflow-y-auto p-5 sm:p-6 md:p-8">
             <button
               onClick={() => setSelectedProduct(null)}
-              className="absolute right-4 top-4 z-10 rounded-full bg-stone-100 p-2 text-gray-600 hover:bg-stone-200"
+              className="sticky sm:absolute right-0 sm:right-4 top-0 sm:top-4 ml-auto z-20 flex items-center justify-center rounded-full bg-stone-100 p-2 text-gray-600 hover:bg-stone-200"
             >
               <X className="h-5 w-5" />
             </button>
 
-            <div className="pr-10 mb-5">
-              <div className="flex items-center gap-2 text-xs text-emerald-700 font-semibold mb-1">
+            <div className="pr-2 sm:pr-10 mb-4 sm:mb-5 -mt-6 sm:mt-0">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-700 font-semibold mb-1">
                 <span className="bg-emerald-100 px-2.5 py-0.5 rounded-full">
                   {selectedProduct.category}
                 </span>
                 <span>• {selectedProduct.jpName}</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">{selectedProduct.name}</h2>
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-900 leading-snug">
+                {selectedProduct.name}
+              </h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
               <div>
-                <div className="relative aspect-square w-full rounded-xl bg-white border border-stone-200 p-4 overflow-hidden flex items-center justify-center">
+                <div className="relative aspect-square w-full rounded-xl bg-white border border-stone-200 p-3 sm:p-4 overflow-hidden flex items-center justify-center">
                   <img
                     src={selectedProduct.images[activeImageIdx] || selectedProduct.images[0]}
                     alt={selectedProduct.name}
@@ -1013,7 +1120,7 @@ export default function UmaShopPage() {
                       <button
                         type="button"
                         onClick={handlePrevImage}
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border border-stone-200 p-1.5 text-gray-700 shadow-xs hover:bg-white transition"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/95 border border-stone-200 p-2 text-gray-700 shadow-xs hover:bg-white transition"
                         title="รูปก่อนหน้า"
                       >
                         <ChevronLeft className="h-4 w-4" />
@@ -1021,7 +1128,7 @@ export default function UmaShopPage() {
                       <button
                         type="button"
                         onClick={handleNextImage}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full bg-white/90 border border-stone-200 p-1.5 text-gray-700 shadow-xs hover:bg-white transition"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/95 border border-stone-200 p-2 text-gray-700 shadow-xs hover:bg-white transition"
                         title="รูปถัดไป"
                       >
                         <ChevronRight className="h-4 w-4" />
@@ -1057,12 +1164,12 @@ export default function UmaShopPage() {
                     type="text"
                     readOnly
                     value={`${typeof window !== 'undefined' ? window.location.origin : 'https://uma-shop.vercel.app'}/?item=${selectedProduct.id}`}
-                    className="flex-1 rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-xs text-gray-600 focus:outline-none"
+                    className="flex-1 min-w-0 rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-xs text-gray-600 focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => handleCopyShareLink(selectedProduct.id)}
-                    className="flex items-center gap-1 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-stone-50"
+                    className="flex items-center gap-1 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-stone-50 shrink-0"
                   >
                     {copiedLink ? (
                       <>
@@ -1089,14 +1196,14 @@ export default function UmaShopPage() {
                     </span>
                   </div>
 
-                  <div className="divide-y divide-dashed divide-stone-200 border-y border-dashed border-stone-200 text-sm">
+                  <div className="divide-y divide-dashed divide-stone-200 border-y border-dashed border-stone-200 text-xs sm:text-sm">
                     <div className="py-2.5 flex justify-between">
                       <span className="text-gray-500">หมวดหมู่</span>
                       <span className="font-medium text-rose-600">{selectedProduct.category}</span>
                     </div>
                     <div className="py-2.5 flex justify-between items-baseline">
                       <span className="text-gray-500">ราคา</span>
-                      <span className="text-xl font-bold text-gray-900">
+                      <span className="text-lg sm:text-xl font-bold text-gray-900">
                         {selectedProduct.price.toLocaleString()}.00 บาท
                       </span>
                     </div>
@@ -1126,23 +1233,23 @@ export default function UmaShopPage() {
 
                   <div className="mt-4 rounded-xl bg-stone-50 p-3.5 border border-stone-200 space-y-1.5 text-xs">
                     <p className="text-gray-600 mb-2 leading-relaxed">{selectedProduct.description}</p>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">แบรนด์:</span>
-                      <span className="font-medium text-gray-900">{selectedProduct.brand}</span>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-500 shrink-0">แบรนด์:</span>
+                      <span className="font-medium text-gray-900 text-right">{selectedProduct.brand}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">ลิขสิทธิ์:</span>
-                      <span className="font-medium text-emerald-700">{selectedProduct.lot}</span>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-500 shrink-0">ลิขสิทธิ์:</span>
+                      <span className="font-medium text-emerald-700 text-right">{selectedProduct.lot}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">ขนาด / วัสดุ:</span>
-                      <span className="font-medium text-gray-900">
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-500 shrink-0">ขนาด / วัสดุ:</span>
+                      <span className="font-medium text-gray-900 text-right">
                         {selectedProduct.size} ({selectedProduct.material})
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">สภาพสินค้า:</span>
-                      <span className="font-medium text-gray-900">{selectedProduct.condition}</span>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-500 shrink-0">สภาพสินค้า:</span>
+                      <span className="font-medium text-gray-900 text-right">{selectedProduct.condition}</span>
                     </div>
                   </div>
 
@@ -1187,7 +1294,7 @@ export default function UmaShopPage() {
                           handleAddToCart(selectedProduct, true);
                           setSelectedProduct(null);
                         }}
-                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-700 py-3.5 text-white font-semibold hover:bg-rose-800 transition shadow-xs"
+                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-700 py-3.5 text-sm sm:text-base text-white font-semibold hover:bg-rose-800 transition shadow-xs"
                       >
                         <ShoppingBag className="h-5 w-5" />
                         เพิ่มลงตะกร้า (฿{selectedProduct.price.toLocaleString()})
@@ -1212,10 +1319,10 @@ export default function UmaShopPage() {
         </div>
       )}
 
-      {/* แถบรายการที่ถูกใจ (Wishlist / ปักหัวใจไว้ก่อน) */}
+      {/* แถบรายการที่ถูกใจ (เต็มจอบน iPhone • ลิ้นชักด้านข้างบน iPad/Notebook) */}
       {isWishlistOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
-          <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between p-6 overflow-y-auto">
+          <div className="w-full sm:max-w-md bg-white h-full shadow-2xl flex flex-col justify-between p-5 sm:p-6 overflow-y-auto">
             <div>
               <div className="flex items-center justify-between pb-4 border-b">
                 <div className="flex items-center gap-2">
@@ -1224,7 +1331,7 @@ export default function UmaShopPage() {
                 </div>
                 <button
                   onClick={() => setIsWishlistOpen(false)}
-                  className="p-1.5 rounded-full hover:bg-gray-100"
+                  className="p-2 rounded-full hover:bg-gray-100"
                 >
                   <X className="h-5 w-5 text-gray-600" />
                 </button>
@@ -1243,9 +1350,9 @@ export default function UmaShopPage() {
                       <img
                         src={product.images[0]}
                         alt={product.name}
-                        className="h-16 w-16 rounded-lg object-contain bg-white border border-stone-200 p-1"
+                        className="h-16 w-16 rounded-lg object-contain bg-white border border-stone-200 p-1 shrink-0"
                       />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-semibold text-gray-800 line-clamp-1">
                           {product.name}
                         </h4>
@@ -1259,14 +1366,14 @@ export default function UmaShopPage() {
                               handleAddToCart(product, true);
                               setIsWishlistOpen(false);
                             }}
-                            className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                           >
                             + ย้ายลงตะกร้า
                           </button>
                           <button
                             type="button"
                             onClick={(e) => handleToggleWishlist(product, e)}
-                            className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-red-600"
+                            className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 p-1"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                             <span>เอาออก</span>
@@ -1282,10 +1389,10 @@ export default function UmaShopPage() {
         </div>
       )}
 
-      {/* แถบตะกร้าสินค้า + แนบสลิปโอนเงิน */}
+      {/* แถบตะกร้าสินค้า + แนบสลิปโอนเงิน (เต็มจอบน iPhone • ลิ้นชักด้านข้างบน iPad/Notebook) */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
-          <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between p-6 overflow-y-auto">
+          <div className="w-full sm:max-w-md bg-white h-full shadow-2xl flex flex-col justify-between p-5 sm:p-6 overflow-y-auto">
             <div>
               <div className="flex items-center justify-between pb-4 border-b">
                 <h2 className="text-lg font-bold text-gray-900">ตะกร้าสินค้าของคุณ</h2>
@@ -1301,7 +1408,7 @@ export default function UmaShopPage() {
                   )}
                   <button
                     onClick={() => setIsCartOpen(false)}
-                    className="p-1.5 rounded-full hover:bg-gray-100"
+                    className="p-2 rounded-full hover:bg-gray-100"
                   >
                     <X className="h-5 w-5 text-gray-600" />
                   </button>
@@ -1325,9 +1432,9 @@ export default function UmaShopPage() {
                       <img
                         src={product.images[0]}
                         alt={product.name}
-                        className="h-16 w-16 rounded-lg object-contain bg-white border border-stone-200 p-1"
+                        className="h-16 w-16 rounded-lg object-contain bg-white border border-stone-200 p-1 shrink-0"
                       />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-semibold text-gray-800 line-clamp-1">
                           {product.name}
                         </h4>
@@ -1338,7 +1445,7 @@ export default function UmaShopPage() {
                           <button
                             type="button"
                             onClick={() => handleUpdateQty(product.id, -1)}
-                            className="p-1 rounded border hover:bg-gray-100"
+                            className="p-1.5 rounded border hover:bg-gray-100"
                             title="ลดจำนวน"
                           >
                             <Minus className="h-3 w-3" />
@@ -1347,7 +1454,7 @@ export default function UmaShopPage() {
                           <button
                             type="button"
                             onClick={() => handleUpdateQty(product.id, 1)}
-                            className="p-1 rounded border hover:bg-gray-100"
+                            className="p-1.5 rounded border hover:bg-gray-100"
                             title="เพิ่มจำนวน"
                           >
                             <Plus className="h-3 w-3" />
@@ -1355,7 +1462,7 @@ export default function UmaShopPage() {
                           <button
                             type="button"
                             onClick={() => handleRemoveItem(product.id)}
-                            className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 transition"
+                            className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 transition p-1"
                             title="ลบรายการนี้"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -1370,7 +1477,7 @@ export default function UmaShopPage() {
             </div>
 
             {cart.length > 0 && !isOrdered && (
-              <form onSubmit={handleCheckout} className="pt-4 border-t space-y-3 mt-4">
+              <form onSubmit={handleCheckout} className="pt-4 border-t space-y-3 mt-4 pb-6 sm:pb-0">
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between text-gray-500">
                     <span>ค่าสินค้า</span>
@@ -1430,7 +1537,7 @@ export default function UmaShopPage() {
                     placeholder="ชื่อ-นามสกุล ผู้รับ"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none"
+                    className="w-full rounded-lg border px-3 py-2.5 text-sm focus:border-emerald-600 focus:outline-none"
                   />
                   <textarea
                     required
@@ -1438,7 +1545,7 @@ export default function UmaShopPage() {
                     placeholder="ที่อยู่จัดส่ง และเบอร์โทรศัพท์"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none"
+                    className="w-full rounded-lg border px-3 py-2.5 text-sm focus:border-emerald-600 focus:outline-none"
                   />
 
                   {/* ช่องอัปโหลด หรือ วางรูปสลิปโอนเงิน */}
@@ -1450,7 +1557,7 @@ export default function UmaShopPage() {
                       <button
                         type="button"
                         onClick={handleButtonPasteSlip}
-                        className="flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-200 transition"
+                        className="flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-200 transition"
                       >
                         <ClipboardPaste className="h-3 w-3" />
                         <span>วางรูปจากคลิปบอร์ด</span>
@@ -1466,17 +1573,17 @@ export default function UmaShopPage() {
                             className="max-h-36 mx-auto rounded-lg border border-stone-200 object-contain"
                           />
                           <p className="text-[11px] text-emerald-700 font-medium">
-                            บีบอัดแล้ว ({slipSizeKB} KB) • คลิกเปลี่ยนรูป หรือกด Ctrl+V วางใหม่
+                            บีบอัดแล้ว ({slipSizeKB} KB) • แตะเพื่อเปลี่ยนรูป หรือกด Ctrl+V วางใหม่
                           </p>
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center py-2 text-gray-500">
+                        <div className="flex flex-col items-center py-2 text-gray-500 text-center">
                           <Upload className="h-5 w-5 text-emerald-600 mb-1" />
                           <span className="text-xs font-medium text-gray-700">
-                            คลิกเลือกรูป หรือกด Ctrl + V วางสลิปได้ทันที
+                            แตะเลือกรูปจากเครื่อง หรือกด Ctrl + V วางสลิป
                           </span>
                           <span className="text-[11px] text-gray-400">
-                            อัปโหลดลิงก์สลิปเข้าอีเมลอัตโนมัติ (รองรับ JPG, PNG และแคปหน้าจอวาง)
+                            รองรับ iPhone, iPad, Notebook และแคปหน้าจอวางโดยตรง
                           </span>
                         </div>
                       )}
@@ -1493,7 +1600,7 @@ export default function UmaShopPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-white font-semibold hover:bg-emerald-700 transition disabled:opacity-60"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-white font-semibold hover:bg-emerald-700 transition disabled:opacity-60"
                 >
                   {isSubmitting ? (
                     <>
