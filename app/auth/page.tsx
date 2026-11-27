@@ -12,13 +12,8 @@ import {
   LogOut,
   CheckCircle2,
   AlertTriangle,
-  Sparkles,
   Eye,
   EyeOff,
-  ShieldCheck,
-  Smartphone,
-  Heart,
-  Trophy,
   ImagePlus,
   ClipboardPaste,
   X,
@@ -95,7 +90,7 @@ function cropImageToCircleBase64(
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
       ctx.restore();
 
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
       const base64Clean = dataUrl.split(',')[1] || '';
       resolve({ base64Clean });
     };
@@ -119,7 +114,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // รูปโปรไฟล์นิ่งเท่านั้น (ไม่รับ GIF) + ปรับซูมและเลื่อนตำแหน่งในวงกลม
+  // รูปโปรไฟล์นิ่งเท่านั้น (ไม่รับ GIF)
   const [avatarRawUrl, setAvatarRawUrl] = useState<string | null>(null);
   const [avatarRawBase64, setAvatarRawBase64] = useState<string | null>(null);
   const [avatarSizeKB, setAvatarSizeKB] = useState(0);
@@ -409,18 +404,16 @@ export default function AuthPage() {
   const currentAvatarUrl: string | null = currentUser?.user_metadata?.avatar_url || null;
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-950 text-slate-900 flex flex-col justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-950 text-slate-900 flex flex-col justify-between">
+      {/* หน้าโหลดสีสดใสพร้อมสลับ GIF */}
       {isLoadingScreen && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-500 via-teal-500 to-amber-400 p-6 text-white">
           <div className="w-full max-w-xs rounded-3xl bg-white/20 backdrop-blur-md border border-white/40 p-5 shadow-2xl flex flex-col items-center gap-4 text-center">
-            <div
-              style={{ width: '144px', height: '144px', overflow: 'hidden' }}
-              className="rounded-2xl bg-white shadow-lg border-2 border-white shrink-0"
-            >
+            <div className="loader-gif-box rounded-2xl bg-white shadow-lg border-2 border-white overflow-hidden shrink-0">
               <img
                 src={LOADING_GIFS[loadingGifIdx]}
                 alt="กำลังโหลด"
-                style={{ width: '144px', height: '144px', objectFit: 'cover' }}
+                className="loader-gif-img"
               />
             </div>
             <div className="space-y-1">
@@ -433,59 +426,65 @@ export default function AuthPage() {
         </div>
       )}
 
+      {/* CSS ล็อกขนาดรูปภาพและไอคอนด้วย !important ไม่ให้ยืดหรือเพี้ยนตาม globals.css */}
       <style jsx>{`
         svg {
-          max-width: 24px;
-          max-height: 24px;
+          max-width: 22px !important;
+          max-height: 22px !important;
           display: inline-block;
           flex-shrink: 0;
         }
-        @keyframes pulseBlob {
-          0%, 100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          50% {
-            transform: translate(20px, -25px) scale(1.08);
-          }
+        .loader-gif-box {
+          width: 140px !important;
+          height: 140px !important;
         }
-        @keyframes shimmerBtn {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
-          }
+        .loader-gif-img {
+          width: 140px !important;
+          height: 140px !important;
+          max-width: 140px !important;
+          max-height: 140px !important;
+          object-fit: cover !important;
         }
-        .blob-animate {
-          animation: pulseBlob 8s ease-in-out infinite;
+        .avatar-circle-box {
+          width: 84px !important;
+          height: 84px !important;
+          min-width: 84px !important;
+          min-height: 84px !important;
+          max-width: 84px !important;
+          max-height: 84px !important;
+          border-radius: 9999px !important;
+          overflow: hidden !important;
         }
-        .blob-animate-delay {
-          animation: pulseBlob 10s ease-in-out infinite 2s;
+        .avatar-circle-img {
+          width: 84px !important;
+          height: 84px !important;
+          min-width: 84px !important;
+          min-height: 84px !important;
+          max-width: 84px !important;
+          max-height: 84px !important;
+          object-fit: cover !important;
+          border-radius: 9999px !important;
         }
-        .btn-shimmer::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            90deg,
-            transparent,
-            rgba(255, 255, 255, 0.28),
-            transparent
-          );
-          transform: translateX(-100%);
-          transition: transform 0.65s ease;
+        .profile-badge-box {
+          width: 60px !important;
+          height: 60px !important;
+          min-width: 60px !important;
+          min-height: 60px !important;
+          border-radius: 9999px !important;
+          overflow: hidden !important;
         }
-        .btn-shimmer:hover::after {
-          transform: translateX(100%);
+        .profile-badge-img {
+          width: 60px !important;
+          height: 60px !important;
+          max-width: 60px !important;
+          max-height: 60px !important;
+          object-fit: cover !important;
         }
       `}</style>
 
-      <div className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl blob-animate" />
-      <div className="pointer-events-none absolute bottom-10 -right-20 h-96 w-96 rounded-full bg-amber-300/15 blur-3xl blob-animate-delay" />
-      <div className="pointer-events-none absolute top-1/2 left-1/3 h-64 w-64 rounded-full bg-teal-400/15 blur-3xl blob-animate" />
-
-      <header className="relative z-10 border-b border-white/10 bg-white/5 backdrop-blur-md">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      {/* แถบเมนูด้านบน */}
+      <header className="border-b border-white/10 bg-white/5 backdrop-blur-md">
+        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <button
             type="button"
             onClick={() =>
@@ -493,436 +492,344 @@ export default function AuthPage() {
                 router.push('/');
               })
             }
-            className="group inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 px-4 py-2 text-xs sm:text-sm font-semibold text-white transition-all duration-200 active:scale-95"
+            className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 px-3.5 py-1.5 text-xs font-semibold text-white transition active:scale-95"
           >
-            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+            <ArrowLeft className="h-4 w-4" />
             <span>กลับหน้าร้าน</span>
           </button>
 
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 border border-amber-300/30 px-3 py-1 text-xs font-bold text-amber-200">
-            <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
-            <span>Circle Crop</span>
-          </span>
+          <div className="flex items-center gap-2 text-white">
+            <span className="h-6 w-6 rounded-lg bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center">
+              U
+            </span>
+            <span className="text-xs font-bold tracking-tight">Tracen Collectibles</span>
+          </div>
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-8 sm:py-12">
-        <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 rounded-3xl overflow-hidden shadow-2xl border border-white/15 bg-white/95 backdrop-blur-xl">
-          <div className="lg:col-span-5 bg-gradient-to-br from-emerald-700 via-emerald-800 to-teal-900 text-white p-7 sm:p-9 flex flex-col justify-between relative overflow-hidden">
-            <div className="pointer-events-none absolute -right-12 -bottom-12 h-48 w-48 rounded-full bg-amber-400/15 blur-2xl" />
-
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2.5">
-                <div className="h-10 w-10 rounded-2xl bg-amber-400 text-slate-950 font-black flex items-center justify-center text-lg shadow-md">
-                  U
-                </div>
-                <div>
-                  <p className="font-extrabold text-base tracking-tight leading-none">
-                    Tracen Collectibles
-                  </p>
-                  <p className="text-[11px] text-emerald-200 mt-1">
-                    Official Goods & Figures
-                  </p>
-                </div>
-              </div>
-
-              <h2 className="text-xl sm:text-2xl font-extrabold leading-snug pt-2">
-                ยินดีต้อนรับสู่คลับนักสะสม Uma Musume
-              </h2>
-              <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-                แนบหรือวางรูปโปรไฟล์ลงในกรอบวงกลม ปรับซูมและตำแหน่งได้ตามใจชอบ
-              </p>
+      {/* การ์ดเดี่ยวขนาดกะทัดรัดพอดีหน้าจอ ไม่ยืดยาว */}
+      <main className="flex-1 flex items-center justify-center px-4 py-6">
+        <div className="w-full max-w-[430px] rounded-3xl bg-white shadow-2xl border border-white/20 p-6 sm:p-7">
+          {checkingSession ? (
+            <div className="py-12 flex flex-col items-center justify-center gap-2.5 text-slate-500 text-xs">
+              <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+              <span>กำลังตรวจสอบสถานะบัญชี...</span>
             </div>
-
-            <div className="space-y-3 pt-8 text-xs">
-              <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/10 p-3">
-                <Smartphone className="h-4 w-4 text-amber-300 shrink-0" />
-                <span>ล็อกอินข้ามอุปกรณ์ได้ทั้ง iPhone, iPad, Notebook</span>
-              </div>
-              <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/10 p-3">
-                <Heart className="h-4 w-4 text-rose-300 shrink-0" />
-                <span>กรอบวงกลม ปรับซูมและลากพื้นที่ภาพเองได้</span>
-              </div>
-              <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/10 p-3">
-                <ShieldCheck className="h-4 w-4 text-emerald-300 shrink-0" />
-                <span>ปลอดภัยด้วยระบบยืนยันตัวตน Supabase</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-7 p-6 sm:p-9 lg:p-10 flex flex-col justify-center bg-white">
-            {checkingSession ? (
-              <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-500 text-sm">
-                <Loader2 className="h-7 w-7 animate-spin text-emerald-600" />
-                <span>กำลังตรวจสอบสถานะบัญชี...</span>
-              </div>
-            ) : currentUser ? (
-              <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div
-                    style={{
-                      width: '64px',
-                      height: '64px',
-                      minWidth: '64px',
-                      minHeight: '64px',
-                      maxWidth: '64px',
-                      maxHeight: '64px',
-                    }}
-                    className="relative rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-extrabold text-2xl shadow-md shrink-0 overflow-hidden"
-                  >
-                    {currentAvatarUrl ? (
-                      <img
-                        src={currentAvatarUrl}
-                        alt={displayTitle}
-                        style={{
-                          width: '64px',
-                          height: '64px',
-                          maxWidth: '64px',
-                          maxHeight: '64px',
-                          objectFit: 'cover',
-                        }}
-                      />
-                    ) : (
-                      displayTitle.charAt(0).toUpperCase()
-                    )}
-                    <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 border-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-0.5 text-[11px] font-bold text-emerald-700">
-                      <Trophy className="h-3 w-3 text-amber-500" />
-                      <span>เข้าสู่ระบบเรียบร้อย</span>
-                    </span>
-                    <h1 className="text-xl font-extrabold text-slate-900 truncate mt-1.5">
-                      สวัสดี, {displayTitle}
-                    </h1>
-                    <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
-                  </div>
+          ) : currentUser ? (
+            <div className="space-y-5">
+              <div className="flex items-center gap-3.5">
+                <div className="profile-badge-box bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-extrabold text-xl shadow-sm shrink-0">
+                  {currentAvatarUrl ? (
+                    <img
+                      src={currentAvatarUrl}
+                      alt={displayTitle}
+                      className="profile-badge-img"
+                    />
+                  ) : (
+                    displayTitle.charAt(0).toUpperCase()
+                  )}
                 </div>
-
-                <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 text-xs space-y-2">
-                  <p className="text-slate-600 leading-relaxed">
-                    บัญชีและรูปโปรไฟล์ของคุณซิงค์บน Cloud แล้ว สามารถนำไปล็อกอินบน{' '}
-                    <span className="font-bold text-slate-900">iPhone, iPad หรือเครื่องอื่น</span>{' '}
-                    ได้ทันทีครับ
-                  </p>
-                  <p className="font-mono text-[11px] text-slate-400 truncate">
-                    Trainer ID: {currentUser.id}
-                  </p>
-                </div>
-
-                {successMsg && (
-                  <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs text-emerald-800 font-semibold flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                    <span>{successMsg}</span>
-                  </div>
-                )}
-
-                <div className="space-y-3 pt-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      triggerGifLoader('กำลังกลับหน้าร้าน...', 650, () => {
-                        router.push('/');
-                      })
-                    }
-                    className="relative overflow-hidden btn-shimmer w-full flex items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3.5 text-sm font-bold text-white shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95"
-                  >
-                    ไปเลือกช้อปของสะสมต่อ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50/80 py-3 text-sm font-bold text-rose-700 hover:bg-rose-100 transition active:scale-95 disabled:opacity-60"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span>ออกจากระบบ</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-5">
-                <div>
-                  <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                    {mode === 'login' ? 'เข้าสู่ระบบเทรนเนอร์' : 'สมัครสมาชิกใหม่'}
+                <div className="min-w-0">
+                  <span className="inline-block rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                    เข้าสู่ระบบแล้ว
+                  </span>
+                  <h1 className="text-lg font-extrabold text-slate-900 truncate mt-1">
+                    {displayTitle}
                   </h1>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                    {mode === 'login'
-                      ? 'กรอกอีเมลและรหัสผ่านเพื่อเข้าใช้งานบัญชีของคุณ'
-                      : 'สร้างบัญชีฟรี พร้อมกรอบรูปโปรไฟล์วงกลม'}
-                  </p>
+                  <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-slate-100 p-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('login');
-                      setErrorMsg(null);
-                      setSuccessMsg(null);
-                    }}
-                    className={`rounded-xl py-2.5 text-xs sm:text-sm font-bold transition-all duration-200 ${
-                      mode === 'login'
-                        ? 'bg-white text-emerald-700 shadow-sm scale-[1.01]'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    เข้าสู่ระบบ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('register');
-                      setErrorMsg(null);
-                      setSuccessMsg(null);
-                    }}
-                    className={`rounded-xl py-2.5 text-xs sm:text-sm font-bold transition-all duration-200 ${
-                      mode === 'register'
-                        ? 'bg-white text-emerald-700 shadow-sm scale-[1.01]'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    สมัครสมาชิกใหม่
-                  </button>
+              <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5 text-xs text-slate-600 leading-relaxed">
+                สามารถใช้อีเมลและรหัสผ่านนี้ล็อกอินบนอุปกรณ์อื่นได้ทันทีครับ
+              </div>
+
+              {successMsg && (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                  <span>{successMsg}</span>
                 </div>
+              )}
 
-                {errorMsg && (
-                  <div className="rounded-2xl bg-rose-50 border border-rose-200 p-3.5 text-xs text-rose-700 font-semibold flex items-start gap-2.5">
-                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
-                    <span>{errorMsg}</span>
-                  </div>
-                )}
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    triggerGifLoader('กำลังกลับหน้าร้าน...', 650, () => {
+                      router.push('/');
+                    })
+                  }
+                  className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 text-sm font-bold text-white transition active:scale-95"
+                >
+                  ไปเลือกช้อปของสะสมต่อ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition active:scale-95 disabled:opacity-60"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>ออกจากระบบ</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* หัวข้อการ์ด */}
+              <div className="text-center">
+                <h1 className="text-xl font-extrabold text-slate-900">
+                  {mode === 'login' ? 'เข้าสู่ระบบเทรนเนอร์' : 'สมัครสมาชิกใหม่'}
+                </h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  {mode === 'login'
+                    ? 'เข้าสู่ระบบเพื่อใช้งานบัญชีข้ามอุปกรณ์'
+                    : 'สร้างบัญชีฟรี พร้อมรูปโปรไฟล์วงกลม'}
+                </p>
+              </div>
 
-                {successMsg && (
-                  <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs text-emerald-800 font-semibold flex items-start gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" />
-                    <span>{successMsg}</span>
-                  </div>
-                )}
+              {/* แถบสลับแท็บ */}
+              <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('login');
+                    setErrorMsg(null);
+                    setSuccessMsg(null);
+                  }}
+                  className={`rounded-xl py-2 text-xs font-bold transition ${
+                    mode === 'login'
+                      ? 'bg-white text-emerald-700 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  เข้าสู่ระบบ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('register');
+                    setErrorMsg(null);
+                    setSuccessMsg(null);
+                  }}
+                  className={`rounded-xl py-2 text-xs font-bold transition ${
+                    mode === 'register'
+                      ? 'bg-white text-emerald-700 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  สมัครสมาชิกใหม่
+                </button>
+              </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* ช่องรูปโปรไฟล์แบบกรอบวงกลม (เฉพาะรูปภาพ ไม่รับ GIF) + ปรับซูมและลากพื้นที่ภาพได้ */}
-                  {mode === 'register' && (
-                    <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3.5 space-y-3">
-                      <div className="flex items-center gap-3.5">
-                        <div className="relative shrink-0">
-                          {avatarRawUrl ? (
-                            <div
-                              onPointerDown={handlePointerDown}
-                              onPointerMove={handlePointerMove}
-                              onPointerUp={handlePointerUp}
-                              style={{
-                                width: '84px',
-                                height: '84px',
-                                minWidth: '84px',
-                                minHeight: '84px',
-                                maxWidth: '84px',
-                                maxHeight: '84px',
-                                touchAction: 'none',
-                              }}
-                              className="relative rounded-full border-2 border-emerald-500 bg-white overflow-hidden shadow-xs cursor-grab active:cursor-grabbing select-none"
-                              title="ลากเพื่อเลื่อนพื้นที่ภาพในวงกลม"
-                            >
-                              <img
-                                src={avatarRawUrl}
-                                alt="ตัวอย่างรูปโปรไฟล์"
-                                draggable={false}
-                                style={{
-                                  width: '84px',
-                                  height: '84px',
-                                  maxWidth: '84px',
-                                  maxHeight: '84px',
-                                  objectFit: 'cover',
-                                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-                                  transformOrigin: 'center center',
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <label
-                              style={{
-                                width: '84px',
-                                height: '84px',
-                                minWidth: '84px',
-                                minHeight: '84px',
-                                maxWidth: '84px',
-                                maxHeight: '84px',
-                              }}
-                              className="rounded-full border-2 border-dashed border-emerald-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden hover:border-emerald-600 transition group"
-                              title="แตะเพื่อเลือกรูปภาพ"
-                            >
-                              <ImagePlus className="h-6 w-6 text-emerald-600 group-hover:scale-110 transition-transform" />
-                              <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                onChange={handleAvatarChange}
-                                className="hidden"
-                              />
-                            </label>
-                          )}
+              {errorMsg && (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 font-semibold flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
 
-                          {avatarRawUrl && (
-                            <button
-                              type="button"
-                              onClick={handleRemoveAvatar}
-                              style={{ width: '22px', height: '22px' }}
-                              className="absolute -top-1 -right-1 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-sm hover:bg-rose-700"
-                              title="ลบรูป"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
+              {successMsg && (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 font-semibold flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" />
+                  <span>{successMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-3.5">
+                {/* กรอบรูปโปรไฟล์วงกลมแบบกะทัดรัด (เฉพาะภาพนิ่ง ไม่รับ GIF) */}
+                {mode === 'register' && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3 flex flex-col items-center text-center gap-2.5">
+                    <div className="relative">
+                      {avatarRawUrl ? (
+                        <div
+                          onPointerDown={handlePointerDown}
+                          onPointerMove={handlePointerMove}
+                          onPointerUp={handlePointerUp}
+                          style={{ touchAction: 'none' }}
+                          className="avatar-circle-box relative border-2 border-emerald-500 bg-white shadow-xs cursor-grab active:cursor-grabbing select-none"
+                          title="ลากเพื่อเลื่อนตำแหน่งภาพในวงกลม"
+                        >
+                          <img
+                            src={avatarRawUrl}
+                            alt="ตัวอย่างรูปโปรไฟล์"
+                            draggable={false}
+                            className="avatar-circle-img"
+                            style={{
+                              transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                              transformOrigin: 'center center',
+                            }}
+                          />
                         </div>
-
-                        <div className="min-w-0 flex-1 space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-800 truncate">
-                              รูปโปรไฟล์ (เฉพาะภาพ JPG / PNG / WEBP)
-                            </span>
-
-                            <button
-                              type="button"
-                              onClick={handlePasteFromClipboardButton}
-                              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 text-[11px] font-bold text-emerald-800 transition shrink-0 active:scale-95"
-                              title="วางรูปจากคลิปบอร์ด"
-                            >
-                              <span className="h-4 w-4 rounded-full bg-emerald-600 text-white flex items-center justify-center">
-                                <ClipboardPaste className="h-2.5 w-2.5" />
-                              </span>
-                              <span>วางรูป</span>
-                            </button>
-                          </div>
-
-                          <p className="text-[11px] text-slate-500 leading-snug">
-                            {avatarRawUrl
-                              ? `ลากในวงกลมเพื่อเลื่อนตำแหน่งได้ (${avatarSizeKB} KB)`
-                              : 'แตะวงกลมหรือก๊อปปี้แล้วกด Ctrl + V วางรูปได้เลย (ไม่บังคับ)'}
-                          </p>
-                        </div>
-                      </div>
+                      ) : (
+                        <label
+                          className="avatar-circle-box border-2 border-dashed border-emerald-400 bg-white flex items-center justify-center cursor-pointer hover:border-emerald-600 transition"
+                          title="แตะเพื่อเลือกรูปภาพ"
+                        >
+                          <ImagePlus className="h-6 w-6 text-emerald-600" />
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={handleAvatarChange}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
 
                       {avatarRawUrl && (
-                        <div className="pt-2 border-t border-slate-200/80 flex items-center gap-2.5 text-[11px] text-slate-600">
-                          <ZoomIn className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                          <span className="shrink-0 font-semibold">ซูม:</span>
-                          <input
-                            type="range"
-                            min={1}
-                            max={2.4}
-                            step={0.05}
-                            value={zoom}
-                            onChange={(e) => setZoom(parseFloat(e.target.value))}
-                            className="flex-1 accent-emerald-600 cursor-pointer h-1.5"
-                            aria-label="ปรับระดับการซูมรูปโปรไฟล์"
-                          />
-                          <span className="font-mono font-bold text-slate-700 w-9 text-right">
-                            {zoom.toFixed(1)}x
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setZoom(1);
-                              setOffset({ x: 0, y: 0 });
-                            }}
-                            className="inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:text-emerald-700 hover:border-emerald-300 transition shrink-0"
-                            title="รีเซ็ตตำแหน่งและขนาดซูม"
-                          >
-                            <RotateCcw className="h-3 w-3" />
-                            <span>รีเซ็ต</span>
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveAvatar}
+                          style={{ width: '22px', height: '22px' }}
+                          className="absolute -top-1 -right-1 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-sm hover:bg-rose-700"
+                          title="ลบรูป"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       )}
                     </div>
-                  )}
 
-                  {mode === 'register' && (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                        ชื่อเทรนเนอร์ (ชื่อที่แสดงในร้าน)
-                      </label>
-                      <div className="relative">
-                        <UserCircle2 className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-                        <input
-                          type="text"
-                          required
-                          placeholder="เช่น สเปเชียล เท็น หรือ เทรนเนอร์ซากุระ"
-                          value={displayName}
-                          onChange={(e) => setDisplayName(e.target.value)}
-                          className="w-full rounded-2xl border border-slate-200 bg-slate-50/60 pl-10 pr-4 py-2.5 text-sm focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10 focus:outline-none transition"
-                        />
+                    <div className="space-y-1 w-full">
+                      <p className="text-[11px] font-bold text-slate-700">
+                        รูปโปรไฟล์ (เฉพาะภาพ JPG / PNG / WEBP)
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        {avatarRawUrl
+                          ? `ลากในวงกลมเพื่อเลื่อนตำแหน่งได้ (${avatarSizeKB} KB)`
+                          : 'แตะวงกลมด้านบนหรือกด Ctrl + V วางรูปได้เลย'}
+                      </p>
+
+                      <div className="pt-0.5">
+                        <button
+                          type="button"
+                          onClick={handlePasteFromClipboardButton}
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-100 hover:bg-emerald-200 px-3 py-1 text-[11px] font-bold text-emerald-800 transition"
+                        >
+                          <ClipboardPaste className="h-3 w-3" />
+                          <span>วางรูปจากคลิปบอร์ด</span>
+                        </button>
                       </div>
                     </div>
-                  )}
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      อีเมล
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-                      <input
-                        type="email"
-                        required
-                        placeholder="trainer.tracen@gmail.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full rounded-2xl border border-slate-200 bg-slate-50/60 pl-10 pr-4 py-2.5 text-sm focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10 focus:outline-none transition"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        minLength={6}
-                        placeholder="••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full rounded-2xl border border-slate-200 bg-slate-50/60 pl-10 pr-11 py-2.5 text-sm focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10 focus:outline-none transition"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((prev) => !prev)}
-                        className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-700 transition"
-                        title={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="relative overflow-hidden btn-shimmer w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3.5 text-sm font-bold text-white shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95 disabled:opacity-60 mt-2"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>กำลังสร้างบัญชี...</span>
-                      </>
-                    ) : (
-                      <span>{mode === 'login' ? 'เข้าสู่ระบบ' : 'สร้างบัญชีสมาชิก'}</span>
+                    {avatarRawUrl && (
+                      <div className="w-full pt-2 border-t border-slate-200/80 flex items-center gap-2 text-[11px] text-slate-600">
+                        <ZoomIn className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <input
+                          type="range"
+                          min={1}
+                          max={2.4}
+                          step={0.05}
+                          value={zoom}
+                          onChange={(e) => setZoom(parseFloat(e.target.value))}
+                          className="flex-1 accent-emerald-600 cursor-pointer h-1.5"
+                          aria-label="ซูมรูปโปรไฟล์"
+                        />
+                        <span className="font-mono font-bold text-slate-700 w-8 text-right">
+                          {zoom.toFixed(1)}x
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setZoom(1);
+                            setOffset({ x: 0, y: 0 });
+                          }}
+                          className="inline-flex items-center gap-0.5 rounded-full bg-white border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 hover:text-emerald-700"
+                        >
+                          <RotateCcw className="h-2.5 w-2.5" />
+                          <span>รีเซ็ต</span>
+                        </button>
+                      </div>
                     )}
-                  </button>
-                </form>
-              </div>
-            )}
-          </div>
+                  </div>
+                )}
+
+                {mode === 'register' && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      ชื่อเทรนเนอร์
+                    </label>
+                    <div className="relative">
+                      <UserCircle2 className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="เช่น สเปเชียล เท็น หรือ เทรนเนอร์ซากุระ"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-3.5 py-2 text-sm focus:bg-white focus:border-emerald-600 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    อีเมล
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      placeholder="trainer.tracen@gmail.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-3.5 py-2 text-sm focus:bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      placeholder="••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-10 py-2 text-sm focus:bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700"
+                      title={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 text-sm font-bold text-white shadow-sm transition active:scale-95 disabled:opacity-60 mt-1"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>กำลังดำเนินการ...</span>
+                    </>
+                  ) : (
+                    <span>{mode === 'login' ? 'เข้าสู่ระบบ' : 'สร้างบัญชีสมาชิก'}</span>
+                  )}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </main>
 
-      <footer className="relative z-10 py-4 px-4 text-center text-xs text-emerald-200/70">
+      <footer className="py-3.5 px-4 text-center text-[11px] text-emerald-200/70">
         Tracen Collectibles • ระบบบัญชีสมาชิกข้ามอุปกรณ์ผ่าน Supabase
       </footer>
     </div>
