@@ -36,45 +36,39 @@ const LOADING_GIFS = [
   'https://media1.tenor.com/m/Gn9gXQJfkVMAAAAC/awful-umamusume.gif',
 ];
 
-function readRawFile(
-  file: File
-): Promise<{
+function isGifFile(file: File): boolean {
+  return file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
+}
+
+function readImageFile(file: File): Promise<{
   rawDataUrl: string;
   rawBase64: string;
-  isGif: boolean;
   sizeKB: number;
 }> {
   return new Promise((resolve, reject) => {
-    const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
     const reader = new FileReader();
-
     reader.onload = (event) => {
       const rawDataUrl = (event.target?.result as string) || '';
       const rawBase64 = rawDataUrl.split(',')[1] || '';
       const sizeKB = Math.max(1, Math.round(file.size / 1024));
-      resolve({
-        rawDataUrl,
-        rawBase64,
-        isGif,
-        sizeKB,
-      });
+      resolve({ rawDataUrl, rawBase64, sizeKB });
     };
-
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
 }
 
-function cropStaticImageToCircleBase64(
+function cropImageToCircleBase64(
   imageSrc: string,
   zoom: number,
   offsetX: number,
   offsetY: number,
   outputSize = 360,
   previewBoxSize = 84
-): Promise<{ base64Clean: string; sizeKB: number }> {
+): Promise<{ base64Clean: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = outputSize;
@@ -85,7 +79,6 @@ function cropStaticImageToCircleBase64(
         return;
       }
 
-      // วาดกรอบวงกลม
       ctx.save();
       ctx.beginPath();
       ctx.arc(outputSize / 2, outputSize / 2, outputSize / 2, 0, Math.PI * 2);
@@ -102,11 +95,9 @@ function cropStaticImageToCircleBase64(
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
       ctx.restore();
 
-      const dataUrl = canvas.toDataURL('image/png', 0.85);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
       const base64Clean = dataUrl.split(',')[1] || '';
-      const approxBytes = Math.round((dataUrl.length * 3) / 4);
-      const sizeKB = Math.max(1, Math.round(approxBytes / 1024));
-      resolve({ base64Clean, sizeKB });
+      resolve({ base64Clean });
     };
     img.onerror = reject;
     img.src = imageSrc;
@@ -128,10 +119,9 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // รูปโปรไฟล์ / GIF + ปรับซูมและเลื่อนตำแหน่งพื้นที่ภาพในวงกลม
+  // รูปโปรไฟล์นิ่งเท่านั้น (ไม่รับ GIF) + ปรับซูมและเลื่อนตำแหน่งในวงกลม
   const [avatarRawUrl, setAvatarRawUrl] = useState<string | null>(null);
   const [avatarRawBase64, setAvatarRawBase64] = useState<string | null>(null);
-  const [avatarIsGif, setAvatarIsGif] = useState(false);
   const [avatarSizeKB, setAvatarSizeKB] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -176,27 +166,26 @@ export default function AuthPage() {
   }, []);
 
   const applyAvatarFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setErrorMsg('กรุณาเลือกหรือวางไฟล์รูปภาพ / ภาพ GIF เท่านั้นครับ');
+    if (isGifFile(file)) {
+      setErrorMsg('ไม่รองรับไฟล์ GIF ครับ กรุณาเลือกหรือวางเฉพาะไฟล์รูปภาพ (JPG, PNG, WEBP)');
       return;
     }
 
-    if (file.type === 'image/gif' && file.size > 4 * 1024 * 1024) {
-      setErrorMsg('ไฟล์ GIF ใหญ่เกิน 4 MB กรุณาเลือกไฟล์ GIF ที่ขนาดเล็กลงครับ');
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('กรุณาเลือกหรือวางเฉพาะไฟล์รูปภาพ (JPG, PNG, WEBP) เท่านั้นครับ');
       return;
     }
 
     setErrorMsg(null);
     try {
-      const raw = await readRawFile(file);
+      const raw = await readImageFile(file);
       setAvatarRawUrl(raw.rawDataUrl);
       setAvatarRawBase64(raw.rawBase64);
-      setAvatarIsGif(raw.isGif);
       setAvatarSizeKB(raw.sizeKB);
       setZoom(1);
       setOffset({ x: 0, y: 0 });
     } catch {
-      setErrorMsg('ไม่สามารถอ่านไฟล์รูปโปรไฟล์นี้ได้ กรุณาลองใหม่อีกครั้งครับ');
+      setErrorMsg('ไม่สามารถอ่านไฟล์รูปภาพนี้ได้ กรุณาลองใหม่อีกครั้งครับ');
     }
   }, []);
 
@@ -209,17 +198,15 @@ export default function AuthPage() {
 
       if (clipboardData.files && clipboardData.files.length > 0) {
         const file = clipboardData.files[0];
-        if (file.type.startsWith('image/')) {
-          e.preventDefault();
-          applyAvatarFile(file);
-          return;
-        }
+        e.preventDefault();
+        applyAvatarFile(file);
+        return;
       }
 
       if (clipboardData.items) {
         for (let i = 0; i < clipboardData.items.length; i++) {
           const item = clipboardData.items[i];
-          if (item.type.startsWith('image/')) {
+          if (item.kind === 'file') {
             const file = item.getAsFile();
             if (file) {
               e.preventDefault();
@@ -239,18 +226,21 @@ export default function AuthPage() {
     try {
       const items = await navigator.clipboard.read();
       for (const item of items) {
+        if (item.types.includes('image/gif')) {
+          setErrorMsg('ไม่รองรับไฟล์ GIF ครับ กรุณาก๊อปปี้เฉพาะไฟล์รูปภาพ (JPG, PNG, WEBP)');
+          return;
+        }
         const imgType = item.types.find((t) => t.startsWith('image/'));
         if (imgType) {
           const blob = await item.getType(imgType);
-          const ext = imgType === 'image/gif' ? 'gif' : 'png';
-          const file = new File([blob], `pasted-avatar.${ext}`, { type: imgType });
+          const file = new File([blob], 'pasted-avatar.png', { type: imgType });
           await applyAvatarFile(file);
           return;
         }
       }
-      setErrorMsg('ไม่พบรูปภาพหรือ GIF ในคลิปบอร์ด ลองก๊อปปี้รูปหรือ GIF แล้วกดวางอีกครั้งครับ');
+      setErrorMsg('ไม่พบรูปภาพในคลิปบอร์ด ลองก๊อปปี้รูปภาพแล้วกดวางอีกครั้งครับ');
     } catch {
-      setErrorMsg('กด Ctrl + V (หรือ Cmd + V) เพื่อวางรูป/GIF ได้โดยตรงครับ');
+      setErrorMsg('กด Ctrl + V (หรือ Cmd + V) เพื่อวางรูปภาพได้โดยตรงครับ');
     }
   };
 
@@ -258,12 +248,12 @@ export default function AuthPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     await applyAvatarFile(file);
+    e.target.value = '';
   };
 
   const handleRemoveAvatar = () => {
     setAvatarRawUrl(null);
     setAvatarRawBase64(null);
-    setAvatarIsGif(false);
     setAvatarSizeKB(0);
     setZoom(1);
     setOffset({ x: 0, y: 0 });
@@ -291,20 +281,20 @@ export default function AuthPage() {
     if (!avatarRawUrl) return null;
 
     let base64ToUpload = avatarRawBase64;
-    if (!avatarIsGif) {
-      try {
-        const cropped = await cropStaticImageToCircleBase64(
-          avatarRawUrl,
-          zoom,
-          offset.x,
-          offset.y,
-          360,
-          84
-        );
+    try {
+      const cropped = await cropImageToCircleBase64(
+        avatarRawUrl,
+        zoom,
+        offset.x,
+        offset.y,
+        360,
+        84
+      );
+      if (cropped.base64Clean) {
         base64ToUpload = cropped.base64Clean;
-      } catch {
-        base64ToUpload = avatarRawBase64;
       }
+    } catch {
+      base64ToUpload = avatarRawBase64;
     }
 
     if (!base64ToUpload) return null;
@@ -350,41 +340,55 @@ export default function AuthPage() {
             data: {
               display_name: displayName.trim() || email.split('@')[0],
               avatar_url: uploadedAvatarUrl,
-              avatar_is_gif: avatarIsGif,
             },
           },
         });
 
         if (error) {
-          setErrorMsg(error.message);
-        } else if (data.user && !data.session) {
-          setSuccessMsg(
-            'สมัครสมาชิกสำเร็จ! กรุณากดยืนยันในอีเมล หรือปิด Confirm email ใน Supabase'
-          );
-        } else {
-          setSuccessMsg('สมัครสมาชิกและตั้งค่าโปรไฟล์สำเร็จ!');
-          triggerGifLoader('กำลังพากลับสู่หน้าร้าน Tracen Collectibles...', 800, () => {
-            router.push('/');
-          });
+          setErrorMsg(error.message || 'ไม่สามารถสร้างบัญชีได้ กรุณาตรวจสอบอีเมลและรหัสผ่านครับ');
+          setLoading(false);
+          return;
         }
+
+        if (data.session) {
+          setCurrentUser(data.session.user);
+        } else if (data.user) {
+          setCurrentUser(data.user);
+        }
+
+        setSuccessMsg('สร้างบัญชีสมาชิกสำเร็จแล้วครับ!');
+        setLoading(false);
+
+        triggerGifLoader('สร้างบัญชีสำเร็จ! กำลังพากลับสู่หน้าร้าน...', 850, () => {
+          router.push('/');
+          router.refresh();
+        });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
 
         if (error) {
           setErrorMsg('อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้งครับ');
-        } else {
-          setSuccessMsg('เข้าสู่ระบบสำเร็จ!');
-          triggerGifLoader('กำลังเข้าสู่ระบบเทรนเนอร์...', 800, () => {
-            router.push('/');
-          });
+          setLoading(false);
+          return;
         }
+
+        if (data.session?.user) {
+          setCurrentUser(data.session.user);
+        }
+
+        setSuccessMsg('เข้าสู่ระบบสำเร็จแล้วครับ!');
+        setLoading(false);
+
+        triggerGifLoader('กำลังเข้าสู่ระบบเทรนเนอร์...', 800, () => {
+          router.push('/');
+          router.refresh();
+        });
       }
     } catch {
       setErrorMsg('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้งครับ');
-    } finally {
       setLoading(false);
     }
   };
@@ -497,7 +501,7 @@ export default function AuthPage() {
 
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 border border-amber-300/30 px-3 py-1 text-xs font-bold text-amber-200">
             <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
-            <span>Circle Crop + GIF</span>
+            <span>Circle Crop</span>
           </span>
         </div>
       </header>
@@ -526,7 +530,7 @@ export default function AuthPage() {
                 ยินดีต้อนรับสู่คลับนักสะสม Uma Musume
               </h2>
               <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-                วางหรือแนบรูปโปรไฟล์ / ภาพ GIF ลงในกรอบวงกลม ปรับซูมและตำแหน่งได้ตามใจชอบ
+                แนบหรือวางรูปโปรไฟล์ลงในกรอบวงกลม ปรับซูมและตำแหน่งได้ตามใจชอบ
               </p>
             </div>
 
@@ -645,7 +649,7 @@ export default function AuthPage() {
                   <p className="text-xs sm:text-sm text-slate-500 mt-1">
                     {mode === 'login'
                       ? 'กรอกอีเมลและรหัสผ่านเพื่อเข้าใช้งานบัญชีของคุณ'
-                      : 'สร้างบัญชีฟรี พร้อมกรอบรูปโปรไฟล์วงกลมและภาพ GIF'}
+                      : 'สร้างบัญชีฟรี พร้อมกรอบรูปโปรไฟล์วงกลม'}
                   </p>
                 </div>
 
@@ -697,11 +701,10 @@ export default function AuthPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* ช่องรูปโปรไฟล์ / ภาพ GIF แบบกรอบวงกลม + ปรับซูมและลากพื้นที่ภาพได้ */}
+                  {/* ช่องรูปโปรไฟล์แบบกรอบวงกลม (เฉพาะรูปภาพ ไม่รับ GIF) + ปรับซูมและลากพื้นที่ภาพได้ */}
                   {mode === 'register' && (
                     <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3.5 space-y-3">
                       <div className="flex items-center gap-3.5">
-                        {/* กรอบวงกลม 84x84px */}
                         <div className="relative shrink-0">
                           {avatarRawUrl ? (
                             <div
@@ -746,12 +749,12 @@ export default function AuthPage() {
                                 maxHeight: '84px',
                               }}
                               className="rounded-full border-2 border-dashed border-emerald-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden hover:border-emerald-600 transition group"
-                              title="แตะเพื่อเลือกรูปหรือภาพ GIF"
+                              title="แตะเพื่อเลือกรูปภาพ"
                             >
                               <ImagePlus className="h-6 w-6 text-emerald-600 group-hover:scale-110 transition-transform" />
                               <input
                                 type="file"
-                                accept="image/*,.gif"
+                                accept="image/jpeg,image/png,image/webp"
                                 onChange={handleAvatarChange}
                                 className="hidden"
                               />
@@ -773,40 +776,31 @@ export default function AuthPage() {
 
                         <div className="min-w-0 flex-1 space-y-1.5">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="text-xs font-bold text-slate-800 truncate">
-                                รูปโปรไฟล์ / ภาพ GIF
-                              </span>
-                              {avatarIsGif && (
-                                <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 shrink-0">
-                                  GIF
-                                </span>
-                              )}
-                            </div>
+                            <span className="text-xs font-bold text-slate-800 truncate">
+                              รูปโปรไฟล์ (เฉพาะภาพ JPG / PNG / WEBP)
+                            </span>
 
-                            {/* ปุ่มวางรูป/GIF แบบวงกลม */}
                             <button
                               type="button"
                               onClick={handlePasteFromClipboardButton}
                               className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 text-[11px] font-bold text-emerald-800 transition shrink-0 active:scale-95"
-                              title="วางรูปหรือ GIF จากคลิปบอร์ด"
+                              title="วางรูปจากคลิปบอร์ด"
                             >
                               <span className="h-4 w-4 rounded-full bg-emerald-600 text-white flex items-center justify-center">
                                 <ClipboardPaste className="h-2.5 w-2.5" />
                               </span>
-                              <span>วางรูป/GIF</span>
+                              <span>วางรูป</span>
                             </button>
                           </div>
 
                           <p className="text-[11px] text-slate-500 leading-snug">
                             {avatarRawUrl
                               ? `ลากในวงกลมเพื่อเลื่อนตำแหน่งได้ (${avatarSizeKB} KB)`
-                              : 'แตะวงกลมหรือก๊อปปี้แล้วกด Ctrl + V วางได้เลย (ไม่บังคับ)'}
+                              : 'แตะวงกลมหรือก๊อปปี้แล้วกด Ctrl + V วางรูปได้เลย (ไม่บังคับ)'}
                           </p>
                         </div>
                       </div>
 
-                      {/* แถบปรับซูมและรีเซ็ตตำแหน่งเมื่อมีรูปในกรอบวงกลม */}
                       {avatarRawUrl && (
                         <div className="pt-2 border-t border-slate-200/80 flex items-center gap-2.5 text-[11px] text-slate-600">
                           <ZoomIn className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -915,7 +909,7 @@ export default function AuthPage() {
                     {loading ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>กำลังดำเนินการ...</span>
+                        <span>กำลังสร้างบัญชี...</span>
                       </>
                     ) : (
                       <span>{mode === 'login' ? 'เข้าสู่ระบบ' : 'สร้างบัญชีสมาชิก'}</span>
