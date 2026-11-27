@@ -45,7 +45,7 @@ import {
   Award,
 } from 'lucide-react';
 
-const APP_VERSION = 'v3.6';
+const APP_VERSION = 'v3.7';
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 
@@ -243,7 +243,7 @@ function cropAvatarCircleHome(
   zoom: number,
   offsetX: number,
   offsetY: number,
-  outputSize = 360,
+  outputSize = 256,
   cropBoxSize = 190
 ): Promise<{ dataUrl: string; base64Clean: string }> {
   return new Promise((resolve, reject) => {
@@ -258,6 +258,9 @@ function cropAvatarCircleHome(
         reject(new Error('Canvas unavailable'));
         return;
       }
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, outputSize, outputSize);
+
       ctx.save();
       ctx.beginPath();
       ctx.arc(outputSize / 2, outputSize / 2, outputSize / 2, 0, Math.PI * 2);
@@ -274,7 +277,7 @@ function cropAvatarCircleHome(
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
       ctx.restore();
 
-      const dataUrl = canvas.toDataURL('image/png', 0.9);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       const base64Clean = dataUrl.split(',')[1] || '';
       resolve({ dataUrl, base64Clean });
     };
@@ -286,13 +289,12 @@ function cropAvatarCircleHome(
 export default function UmaShopPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [cachedAvatar, setCachedAvatar] = useState<string | null>(null);
 
-  // หน้าโหลดสีสดใสพร้อมสลับ GIF
   const [isLoadingScreen, setIsLoadingScreen] = useState(true);
   const [loadingGifIdx, setLoadingGifIdx] = useState(0);
   const [loadingText, setLoadingText] = useState('กำลังโหลดร้าน Tracen Collectibles...');
 
-  // State สำหรับ Pop-up นามบัตรเทรนเนอร์ & แก้ไขข้อมูล
   const [isProfileCardOpen, setIsProfileCardOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
@@ -301,7 +303,6 @@ export default function UmaShopPage() {
   const [editAvatarBase64, setEditAvatarBase64] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Pop-up ครอปวงกลมตอนเปลี่ยนรูปในนามบัตร
   const [rawCropSrc, setRawCropSrc] = useState<string | null>(null);
   const [isHomeCropOpen, setIsHomeCropOpen] = useState(false);
   const [cropZoom, setCropZoom] = useState(1);
@@ -372,15 +373,25 @@ export default function UmaShopPage() {
 
   const syncUserToForm = useCallback((user: User | null) => {
     setCurrentUser(user);
+    const localSavedAvatar =
+      typeof window !== 'undefined' ? localStorage.getItem('tracen_cached_avatar') : null;
+    if (localSavedAvatar) {
+      setCachedAvatar(localSavedAvatar);
+    }
+
     if (user) {
       const name = user.user_metadata?.display_name || user.email?.split('@')[0] || 'เทรนเนอร์';
       const bio = user.user_metadata?.bio || 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน';
-      const avatar = user.user_metadata?.avatar_url || null;
+      const avatar = user.user_metadata?.avatar_url || localSavedAvatar || null;
       setCustomerName((prev) => prev || name);
       setEditName(name);
       setEditBio(bio);
       setEditAvatarPreview(avatar);
       setEditAvatarBase64(null);
+      if (avatar && typeof window !== 'undefined') {
+        localStorage.setItem('tracen_cached_avatar', avatar);
+        setCachedAvatar(avatar);
+      }
     }
   }, []);
 
@@ -398,6 +409,9 @@ export default function UmaShopPage() {
     return () => subscription.unsubscribe();
   }, [syncUserToForm]);
 
+  const activeAvatarUrl: string | null =
+    currentUser?.user_metadata?.avatar_url || cachedAvatar || null;
+
   const handleProfileButtonClick = () => {
     if (currentUser) {
       setIsEditingProfile(false);
@@ -407,7 +421,7 @@ export default function UmaShopPage() {
           'เทรนเนอร์'
       );
       setEditBio(currentUser.user_metadata?.bio || 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน');
-      setEditAvatarPreview(currentUser.user_metadata?.avatar_url || null);
+      setEditAvatarPreview(activeAvatarUrl);
       setEditAvatarBase64(null);
       setIsProfileCardOpen(true);
     } else {
@@ -443,7 +457,7 @@ export default function UmaShopPage() {
         cropZoom,
         cropOffset.x,
         cropOffset.y,
-        360,
+        256,
         190
       );
       setEditAvatarPreview(dataUrl);
@@ -499,6 +513,21 @@ export default function UmaShopPage() {
       return;
     }
 
+    if (finalAvatarUrl) {
+      localStorage.setItem('tracen_cached_avatar', finalAvatarUrl);
+      setCachedAvatar(finalAvatarUrl);
+    }
+    if (currentUser.email) {
+      try {
+        const rawMap = localStorage.getItem('tracen_trainer_directory');
+        const map = rawMap ? JSON.parse(rawMap) : {};
+        map[cleanNewName.toLowerCase()] = currentUser.email;
+        localStorage.setItem('tracen_trainer_directory', JSON.stringify(map));
+      } catch {
+        // ignore
+      }
+    }
+
     if (data.user) {
       setCurrentUser(data.user);
       setCustomerName(cleanNewName);
@@ -509,6 +538,9 @@ export default function UmaShopPage() {
 
   const handleLogoutFromCard = async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem('tracen_cached_avatar');
+    localStorage.removeItem('tracen_cached_name');
+    setCachedAvatar(null);
     setCurrentUser(null);
     setIsProfileCardOpen(false);
     showToast('ออกจากระบบเรียบร้อยแล้ว');
@@ -911,8 +943,6 @@ export default function UmaShopPage() {
   const userBio =
     currentUser?.user_metadata?.bio || 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน';
 
-  const currentAvatarUrl: string | null = currentUser?.user_metadata?.avatar_url || null;
-
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900 pb-24 md:pb-0">
       {/* หน้าโหลดสีสดใสพร้อมสลับ GIF */}
@@ -971,7 +1001,7 @@ export default function UmaShopPage() {
         </div>
       )}
 
-      {/* Pop-up นามบัตรเทรนเนอร์ (แสดงเมื่อคลิกรูปโปรไฟล์ด้านบน) */}
+      {/* Pop-up นามบัตรเทรนเนอร์ */}
       {isProfileCardOpen && currentUser && (
         <div
           onClick={() => setIsProfileCardOpen(false)}
@@ -998,7 +1028,6 @@ export default function UmaShopPage() {
               boxShadow: '0 25px 50px -12px rgba(0,0,0,0.45)',
             }}
           >
-            {/* แถบหัวนามบัตร */}
             <div
               style={{
                 background: 'linear-gradient(135deg, #065f46 0%, #0d9488 100%)',
@@ -1035,14 +1064,12 @@ export default function UmaShopPage() {
               </button>
             </div>
 
-            {/* ส่วนตัวนามบัตร */}
             <div style={{ padding: '0 24px 24px 24px', marginTop: '-36px' }}>
               {isEditingProfile ? (
                 <form
                   onSubmit={handleSaveProfileCard}
                   style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
                 >
-                  {/* รูปโปรไฟล์วงกลม + ปุ่มเปลี่ยนรูป */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <div style={{ position: 'relative', width: '84px', height: '84px' }}>
                       <div
@@ -1215,7 +1242,6 @@ export default function UmaShopPage() {
                 </form>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {/* รูปโปรไฟล์วงกลม + ชื่อ */}
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '14px' }}>
                     <div
                       style={{
@@ -1235,9 +1261,9 @@ export default function UmaShopPage() {
                         flexShrink: 0,
                       }}
                     >
-                      {currentAvatarUrl ? (
+                      {activeAvatarUrl ? (
                         <img
-                          src={currentAvatarUrl}
+                          src={activeAvatarUrl}
                           alt={displayUserName}
                           style={{
                             width: '80px',
@@ -1280,7 +1306,6 @@ export default function UmaShopPage() {
                     </div>
                   </div>
 
-                  {/* กล่องคำอธิบายบนนามบัตร */}
                   <div
                     style={{
                       background: '#f8fafc',
@@ -1312,7 +1337,6 @@ export default function UmaShopPage() {
                     </p>
                   </div>
 
-                  {/* ปุ่มแก้ไขข้อมูล & ออกจากระบบ */}
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <button
                       type="button"
@@ -1714,7 +1738,7 @@ export default function UmaShopPage() {
               )}
             </button>
 
-            {/* ปุ่มโปรไฟล์ด้านบน: ถ้าล็อกอินแล้วกดเพื่อเปิดนามบัตรเทรนเนอร์ */}
+            {/* ปุ่มโปรไฟล์ด้านบน */}
             <button
               type="button"
               onClick={handleProfileButtonClick}
@@ -1734,9 +1758,9 @@ export default function UmaShopPage() {
                 }}
                 className="relative bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0"
               >
-                {currentAvatarUrl ? (
+                {activeAvatarUrl ? (
                   <img
-                    src={currentAvatarUrl}
+                    src={activeAvatarUrl}
                     alt={displayUserName}
                     style={{ width: '26px', height: '26px', objectFit: 'cover', display: 'block' }}
                   />
