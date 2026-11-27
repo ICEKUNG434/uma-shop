@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient, User } from '@supabase/supabase-js';
 import {
-  Mail,
   Lock,
   User as UserIcon,
   ArrowLeft,
@@ -25,7 +24,7 @@ import {
   Shield,
 } from 'lucide-react';
 
-const UI_VERSION = 'v5.0';
+const UI_VERSION = 'v5.2';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 const SUPABASE_URL = 'https://jwujhkuudfqpitouiqnw.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_EJM1vWSsz9qNrjRg20lx8A_M-FxsBMq';
@@ -37,12 +36,21 @@ const LOADING_GIFS = [
 ];
 
 const SAMPLE_TRAINER_NAMES = [
+  'TazunaHayakawa',
+  'SpecialWeek01',
+  'TokaiTeio',
+  'OguriCap',
   'เทรนเนอร์ซากุระ',
-  'สเปเชียล เท็น',
-  'ทีมสปิก้า 01',
-  'เทรนเนอร์คาเฟ่',
-  'นักสะสมเทรเซน',
 ];
+
+function usernameToInternalEmail(rawName: string): string {
+  const clean = rawName.trim().toLowerCase().replace(/\s+/g, '_');
+  const encoded = Array.from(clean)
+    .map((ch) => (/[a-z0-9._-]/.test(ch) ? ch : `u${ch.charCodeAt(0).toString(16)}`))
+    .join('');
+  const safeId = (encoded || 'trainer').slice(0, 48);
+  return `${safeId}@tracen.local`;
+}
 
 function isGifFile(file: File): boolean {
   return file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
@@ -115,16 +123,13 @@ export default function AuthPage() {
   const [loadingText, setLoadingText] = useState('กำลังเปิดระบบสมาชิก...');
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
+  const [trainerName, setTrainerName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // รูปโปรไฟล์ที่ตัดกรอบวงกลมเสร็จแล้ว
   const [croppedAvatarUrl, setCroppedAvatarUrl] = useState<string | null>(null);
   const [croppedAvatarBase64, setCroppedAvatarBase64] = useState<string | null>(null);
 
-  // Pop-up ตัดกรอบรูปวงกลม
   const [rawImageToCrop, setRawImageToCrop] = useState<string | null>(null);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -301,7 +306,7 @@ export default function AuthPage() {
   const handleRandomName = () => {
     const random =
       SAMPLE_TRAINER_NAMES[Math.floor(Math.random() * SAMPLE_TRAINER_NAMES.length)];
-    setDisplayName(random);
+    setTrainerName(random);
   };
 
   const uploadAvatarToImgBB = async (): Promise<string | null> => {
@@ -330,7 +335,15 @@ export default function AuthPage() {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    const cleanName = trainerName.trim();
+    if (!cleanName) {
+      setErrorMsg('กรุณากรอกชื่อเทรนเนอร์ครับ');
+      return;
+    }
+
     setLoading(true);
+    const internalEmail = usernameToInternalEmail(cleanName);
 
     try {
       if (mode === 'register') {
@@ -340,18 +353,23 @@ export default function AuthPage() {
         }
 
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: internalEmail,
           password,
           options: {
             data: {
-              display_name: displayName.trim() || email.split('@')[0],
+              display_name: cleanName,
               avatar_url: uploadedAvatarUrl,
+              bio: 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน',
             },
           },
         });
 
         if (error) {
-          setErrorMsg(error.message || 'ไม่สามารถสร้างบัญชีได้ กรุณาตรวจสอบข้อมูลอีกครั้งครับ');
+          if (error.message.toLowerCase().includes('already registered')) {
+            setErrorMsg('ชื่อเทรนเนอร์นี้มีคนใช้แล้ว กรุณาตั้งชื่ออื่นครับ');
+          } else {
+            setErrorMsg(error.message || 'ไม่สามารถสร้างบัญชีได้ กรุณาลองใหม่อีกครั้งครับ');
+          }
           setLoading(false);
           return;
         }
@@ -362,21 +380,20 @@ export default function AuthPage() {
           setCurrentUser(data.user);
         }
 
-        setSuccessMsg('สร้างบัญชีสมาชิกสำเร็จแล้วครับ!');
+        setSuccessMsg('สร้างบัญชีสำเร็จ! กำลังพากลับหน้าแรก...');
         setLoading(false);
 
-        triggerGifLoader('สร้างบัญชีสำเร็จ! กำลังพากลับสู่หน้าร้าน...', 850, () => {
+        triggerGifLoader('สมัครสมาชิกสำเร็จ! กำลังเข้าสู่หน้าแรก...', 750, () => {
           router.push('/');
-          router.refresh();
         });
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
+          email: internalEmail,
           password,
         });
 
         if (error) {
-          setErrorMsg('อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้งครับ');
+          setErrorMsg('ชื่อเทรนเนอร์หรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้งครับ');
           setLoading(false);
           return;
         }
@@ -385,12 +402,11 @@ export default function AuthPage() {
           setCurrentUser(data.session.user);
         }
 
-        setSuccessMsg('เข้าสู่ระบบสำเร็จแล้วครับ!');
+        setSuccessMsg('เข้าสู่ระบบสำเร็จ! กำลังพากลับหน้าแรก...');
         setLoading(false);
 
-        triggerGifLoader('กำลังเข้าสู่ระบบเทรนเนอร์...', 800, () => {
+        triggerGifLoader('กำลังเข้าสู่หน้าแรก...', 700, () => {
           router.push('/');
-          router.refresh();
         });
       }
     } catch {
@@ -424,7 +440,6 @@ export default function AuthPage() {
         justifyContent: 'space-between',
       }}
     >
-      {/* หน้าโหลดสีสดใสพร้อมสลับ GIF */}
       {isLoadingScreen && (
         <div
           style={{
@@ -480,7 +495,6 @@ export default function AuthPage() {
         </div>
       )}
 
-      {/* Pop-up ตัดกรอบรูปวงกลม */}
       {isCropModalOpen && rawImageToCrop && (
         <div
           style={{
@@ -688,7 +702,6 @@ export default function AuthPage() {
         </div>
       )}
 
-      {/* แถบเมนูด้านบน */}
       <header
         style={{
           borderBottom: '1px solid rgba(255,255,255,0.1)',
@@ -748,7 +761,6 @@ export default function AuthPage() {
         </div>
       </header>
 
-      {/* กล่องกลางใบเดียวขนาดพอดีจอ */}
       <main
         style={{
           flex: 1,
@@ -761,7 +773,7 @@ export default function AuthPage() {
         <div
           style={{
             width: '100%',
-            maxWidth: '410px',
+            maxWidth: '400px',
             background: '#ffffff',
             borderRadius: '28px',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
@@ -877,10 +889,10 @@ export default function AuthPage() {
                     </span>
                     <h1
                       style={{
-                        fontSize: '17px',
+                        fontSize: '18px',
                         fontWeight: 800,
                         color: '#0f172a',
-                        margin: '4px 0 2px 0',
+                        margin: '4px 0 0 0',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -888,18 +900,6 @@ export default function AuthPage() {
                     >
                       {displayTitle}
                     </h1>
-                    <p
-                      style={{
-                        fontSize: '12px',
-                        color: '#64748b',
-                        margin: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {currentUser.email}
-                    </p>
                   </div>
                 </div>
 
@@ -1247,19 +1247,19 @@ export default function AuthPage() {
                     </>
                   )}
 
-                  {mode === 'register' && (
-                    <div>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: '5px',
-                        }}
-                      >
-                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>
-                          ชื่อเทรนเนอร์
-                        </label>
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '5px',
+                      }}
+                    >
+                      <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>
+                        ชื่อเทรนเนอร์
+                      </label>
+                      {mode === 'register' && (
                         <button
                           type="button"
                           onClick={handleRandomName}
@@ -1279,54 +1279,10 @@ export default function AuthPage() {
                           <Wand2 style={{ width: '12px', height: '12px' }} />
                           <span>สุ่มชื่อเท่ๆ</span>
                         </button>
-                      </div>
-                      <div style={{ position: 'relative' }}>
-                        <UserIcon
-                          style={{
-                            position: 'absolute',
-                            left: '14px',
-                            top: '11px',
-                            width: '16px',
-                            height: '16px',
-                            color: '#94a3b8',
-                          }}
-                        />
-                        <input
-                          type="text"
-                          required
-                          placeholder="เช่น สเปเชียล เท็น หรือ เทรนเนอร์ซากุระ"
-                          value={displayName}
-                          onChange={(e) => setDisplayName(e.target.value)}
-                          style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            borderRadius: '14px',
-                            border: '1px solid #cbd5e1',
-                            background: '#f8fafc',
-                            padding: '9px 14px 9px 38px',
-                            fontSize: '13px',
-                            color: '#0f172a',
-                            outline: 'none',
-                          }}
-                        />
-                      </div>
+                      )}
                     </div>
-                  )}
-
-                  <div>
-                    <label
-                      style={{
-                        display: 'block',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        color: '#475569',
-                        marginBottom: '5px',
-                      }}
-                    >
-                      อีเมล
-                    </label>
                     <div style={{ position: 'relative' }}>
-                      <Mail
+                      <UserIcon
                         style={{
                           position: 'absolute',
                           left: '14px',
@@ -1337,11 +1293,11 @@ export default function AuthPage() {
                         }}
                       />
                       <input
-                        type="email"
+                        type="text"
                         required
-                        placeholder="trainer.tracen@gmail.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="เช่น TazunaHayakawa หรือ สเปเชียล เท็น"
+                        value={trainerName}
+                        onChange={(e) => setTrainerName(e.target.value)}
                         style={{
                           width: '100%',
                           boxSizing: 'border-box',
