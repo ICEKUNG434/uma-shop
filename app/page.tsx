@@ -38,7 +38,7 @@ import {
   UserCircle2,
 } from 'lucide-react';
 
-const APP_VERSION = 'v3.2';
+const APP_VERSION = 'v3.3';
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 
@@ -748,20 +748,37 @@ export default function UmaShopPage() {
         .sparkle-3 {
           animation: twinkle 3.8s ease-in-out infinite 2s;
         }
+        .cart-shimmer::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.3),
+            transparent
+          );
+          transform: translateX(-100%);
+          transition: transform 0.65s ease;
+        }
+        .cart-shimmer:hover::after {
+          transform: translateX(100%);
+        }
       `}</style>
 
+      {/* 1. แถบเมนูด้านบนพร้อมลูกเล่น 4 ปุ่มขวาบน */}
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-2.5 sm:gap-4">
           <div
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="flex items-center gap-2.5 sm:gap-3 cursor-pointer shrink-0"
+            className="group flex items-center gap-2.5 sm:gap-3 cursor-pointer shrink-0"
           >
-            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-extrabold flex items-center justify-center shadow-sm text-base">
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-extrabold flex items-center justify-center shadow-sm text-base group-hover:scale-105 group-hover:rotate-3 transition-transform">
               U
             </div>
             <div>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-bold text-sm sm:text-lg text-slate-900 tracking-tight leading-none">
+                <span className="font-bold text-sm sm:text-lg text-slate-900 tracking-tight leading-none group-hover:text-emerald-700 transition-colors">
                   Tracen Collectibles
                 </span>
                 <span className="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 text-[10px] font-bold">
@@ -795,72 +812,84 @@ export default function UmaShopPage() {
             )}
           </div>
 
+          {/* 4 ปุ่มขวาบนที่อัปเกรดแอนิเมชันและลูกเล่นแล้ว */}
           <div className="flex items-center gap-2 sm:gap-2.5">
             <button
               type="button"
               onClick={() => setIsMobileSearchOpen((prev) => !prev)}
-              className="md:hidden flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition"
+              className="md:hidden flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 active:scale-95 transition-all"
               title="ค้นหาสินค้า"
             >
               <Search className="h-4 w-4" />
             </button>
 
+            {/* ปุ่มที่ 1: ออเดอร์ */}
             <button
               type="button"
               onClick={() => setIsOrdersOpen(true)}
-              className="relative hidden sm:flex items-center gap-2 h-10 rounded-2xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
+              className="group relative hidden sm:flex items-center gap-2 h-10 rounded-full border border-slate-200/90 bg-white px-4 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:bg-sky-50/70 hover:text-sky-700 hover:-translate-y-0.5 hover:shadow-md hover:shadow-sky-100/70 active:scale-95 transition-all duration-200"
               title="ประวัติคำสั่งซื้อล่าสุด"
             >
-              <ReceiptText className="h-4 w-4 text-slate-500" />
+              <ReceiptText className="h-4 w-4 text-slate-500 group-hover:text-sky-600 group-hover:-rotate-12 transition-transform duration-200" />
               <span className="hidden xl:inline">ออเดอร์</span>
               {orderHistory.length > 0 && (
-                <span className="rounded-full bg-slate-200 text-slate-800 px-1.5 py-0.5 text-[11px] font-bold">
+                <span className="rounded-full bg-sky-600 text-white px-1.5 py-0.5 text-[11px] font-bold shadow-2xs">
                   {orderHistory.length}
                 </span>
               )}
             </button>
 
+            {/* ปุ่มที่ 2: ถูกใจ */}
             <button
               onClick={() => setIsWishlistOpen(true)}
-              className="relative hidden sm:flex items-center gap-2 h-10 rounded-2xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition"
+              className="group relative hidden sm:flex items-center gap-2 h-10 rounded-full border border-slate-200/90 bg-white px-4 text-sm font-semibold text-slate-700 hover:border-rose-300 hover:bg-rose-50/80 hover:text-rose-600 hover:-translate-y-0.5 hover:shadow-md hover:shadow-rose-100/80 active:scale-95 transition-all duration-200"
               title="รายการที่ปักหัวใจไว้"
             >
               <Heart
-                className={`h-4 w-4 ${
-                  wishlistIds.length > 0 ? 'fill-rose-500 text-rose-500' : 'text-slate-500'
+                className={`h-4 w-4 transition-transform duration-200 group-hover:scale-125 ${
+                  wishlistIds.length > 0
+                    ? 'fill-rose-500 text-rose-500'
+                    : 'text-slate-500 group-hover:text-rose-500'
                 }`}
               />
               <span className="hidden xl:inline">ถูกใจ</span>
               {wishlistIds.length > 0 && (
-                <span className="rounded-full bg-rose-100 text-rose-700 px-1.5 py-0.5 text-[11px] font-bold">
+                <span className="rounded-full bg-rose-500 text-white px-1.5 py-0.5 text-[11px] font-bold shadow-2xs">
                   {wishlistIds.length}
                 </span>
               )}
             </button>
 
+            {/* ปุ่มที่ 3: ตะกร้า (ปุ่มเด่นพร้อม Shimmer & Bounce) */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="flex items-center gap-2 h-9 sm:h-10 rounded-2xl bg-emerald-600 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-white hover:bg-emerald-700 transition shadow-sm"
+              className="group relative overflow-hidden cart-shimmer flex items-center gap-2 h-9 sm:h-10 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 sm:px-4 text-xs sm:text-sm font-bold text-white shadow-sm hover:shadow-lg hover:shadow-emerald-200 hover:-translate-y-0.5 active:scale-95 transition-all duration-200"
             >
-              <ShoppingBag className="h-4 w-4" />
+              <ShoppingBag className="h-4 w-4 group-hover:-rotate-12 group-hover:scale-110 transition-transform duration-200" />
               <span className="hidden sm:inline">ตะกร้า</span>
               {totalItems > 0 && (
-                <span className="rounded-full bg-rose-500 px-1.5 sm:px-2 py-0.5 text-[11px] font-bold">
+                <span className="inline-flex items-center justify-center rounded-full bg-rose-500 px-1.5 sm:px-2 py-0.5 text-[11px] font-extrabold shadow-xs animate-bounce">
                   {totalItems}
                 </span>
               )}
             </button>
 
+            {/* ปุ่มที่ 4: เข้าสู่ระบบ / บัญชีฉัน */}
             <Link
               href="/auth"
-              className={`flex items-center gap-2 h-9 sm:h-10 rounded-2xl border px-3 sm:px-3.5 text-xs sm:text-sm font-semibold transition ${
+              className={`group relative flex items-center gap-2 h-9 sm:h-10 rounded-full border px-3.5 sm:px-4 text-xs sm:text-sm font-semibold hover:-translate-y-0.5 active:scale-95 transition-all duration-200 ${
                 currentUser
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  ? 'border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-800 hover:shadow-md hover:shadow-emerald-100'
+                  : 'border-slate-200/90 bg-white text-slate-700 hover:border-emerald-400 hover:bg-emerald-50/50 hover:text-emerald-800 hover:shadow-md hover:shadow-slate-100'
               }`}
               title={currentUser ? `บัญชี: ${currentUser.email}` : 'เข้าสู่ระบบ / สมัครบัญชี'}
             >
-              <UserCircle2 className="h-4 w-4 shrink-0" />
+              <div className="relative flex items-center">
+                <UserCircle2 className="h-4 w-4 shrink-0 group-hover:scale-110 group-hover:text-emerald-600 transition-transform duration-200" />
+                {currentUser && (
+                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+                )}
+              </div>
               <span className="max-w-[80px] sm:max-w-[110px] truncate">
                 {currentUser ? displayUserName : 'เข้าสู่ระบบ'}
               </span>
@@ -922,7 +951,7 @@ export default function UmaShopPage() {
               type="button"
               onClick={handleRandomPick}
               disabled={isRollingGacha}
-              className="inline-flex items-center gap-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-extrabold px-5 py-3.5 text-xs sm:text-sm shadow-lg transition disabled:opacity-70"
+              className="inline-flex items-center gap-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 hover:-translate-y-0.5 active:scale-95 text-slate-950 font-extrabold px-5 py-3.5 text-xs sm:text-sm shadow-lg transition-all disabled:opacity-70"
             >
               <Dices className={`h-5 w-5 ${isRollingGacha ? 'animate-spin' : ''}`} />
               <span>{isRollingGacha ? 'กำลังสุ่มตัวละคร...' : 'สุ่มแนะนำของสะสม (Gacha)'}</span>
@@ -1159,7 +1188,7 @@ export default function UmaShopPage() {
             setIsOrdersOpen(false);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className="flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-semibold text-emerald-700"
+          className="flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-semibold text-emerald-700 active:scale-95 transition"
         >
           <Home className="h-5 w-5" />
           <span>หน้าแรก</span>
@@ -1168,7 +1197,7 @@ export default function UmaShopPage() {
         <button
           type="button"
           onClick={handleRandomPick}
-          className="flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-medium text-amber-600"
+          className="flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-medium text-amber-600 active:scale-95 transition"
         >
           <Dices className="h-5 w-5" />
           <span>สุ่มกาชา</span>
@@ -1177,7 +1206,7 @@ export default function UmaShopPage() {
         <button
           type="button"
           onClick={() => setIsWishlistOpen(true)}
-          className="relative flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-medium text-slate-600 hover:text-rose-600"
+          className="relative flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-medium text-slate-600 hover:text-rose-600 active:scale-95 transition"
         >
           <Heart
             className={`h-5 w-5 ${
@@ -1195,7 +1224,7 @@ export default function UmaShopPage() {
         <button
           type="button"
           onClick={() => setIsOrdersOpen(true)}
-          className="relative flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-medium text-slate-600"
+          className="relative flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-medium text-slate-600 active:scale-95 transition"
         >
           <ReceiptText className="h-5 w-5" />
           <span>ออเดอร์</span>
@@ -1208,7 +1237,7 @@ export default function UmaShopPage() {
 
         <Link
           href="/auth"
-          className={`flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-medium ${
+          className={`flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-medium active:scale-95 transition ${
             currentUser ? 'text-emerald-700 font-bold' : 'text-slate-600'
           }`}
         >
