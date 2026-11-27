@@ -36,9 +36,16 @@ import {
   Zap,
   ExternalLink,
   UserCircle2,
+  Edit3,
+  LogOut,
+  Camera,
+  ZoomIn,
+  Crop,
+  Save,
+  Award,
 } from 'lucide-react';
 
-const APP_VERSION = 'v3.5';
+const APP_VERSION = 'v3.6';
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 
@@ -51,7 +58,6 @@ const LOADING_GIFS = [
   'https://media1.tenor.com/m/Gn9gXQJfkVMAAAAC/awful-umamusume.gif',
 ];
 
-// 👇 แก้ไขข้อมูลบัญชีรับโอนเงินของคุณตรงนี้ครับ
 const BANK_INFO = {
   bankName: 'ธนาคารกสิกรไทย (KBank)',
   accountNumber: '123-4-56789-0',
@@ -232,14 +238,76 @@ function compressSlipImage(
   });
 }
 
+function cropAvatarCircleHome(
+  imageSrc: string,
+  zoom: number,
+  offsetX: number,
+  offsetY: number,
+  outputSize = 360,
+  cropBoxSize = 190
+): Promise<{ dataUrl: string; base64Clean: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = outputSize;
+      canvas.height = outputSize;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Canvas unavailable'));
+        return;
+      }
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(outputSize / 2, outputSize / 2, outputSize / 2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+
+      const scaleFactor = outputSize / cropBoxSize;
+      const baseScale = Math.max(outputSize / img.width, outputSize / img.height);
+      const drawW = img.width * baseScale * zoom;
+      const drawH = img.height * baseScale * zoom;
+      const drawX = outputSize / 2 - drawW / 2 + offsetX * scaleFactor;
+      const drawY = outputSize / 2 - drawH / 2 + offsetY * scaleFactor;
+
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      ctx.restore();
+
+      const dataUrl = canvas.toDataURL('image/png', 0.9);
+      const base64Clean = dataUrl.split(',')[1] || '';
+      resolve({ dataUrl, base64Clean });
+    };
+    img.onerror = reject;
+    img.src = imageSrc;
+  });
+}
+
 export default function UmaShopPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // หน้าโหลดสีสดใสพร้อมสลับ GIF เคลื่อนไหว
+  // หน้าโหลดสีสดใสพร้อมสลับ GIF
   const [isLoadingScreen, setIsLoadingScreen] = useState(true);
   const [loadingGifIdx, setLoadingGifIdx] = useState(0);
   const [loadingText, setLoadingText] = useState('กำลังโหลดร้าน Tracen Collectibles...');
+
+  // State สำหรับ Pop-up นามบัตรเทรนเนอร์ & แก้ไขข้อมูล
+  const [isProfileCardOpen, setIsProfileCardOpen] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editAvatarPreview, setEditAvatarPreview] = useState<string | null>(null);
+  const [editAvatarBase64, setEditAvatarBase64] = useState<string | null>(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Pop-up ครอปวงกลมตอนเปลี่ยนรูปในนามบัตร
+  const [rawCropSrc, setRawCropSrc] = useState<string | null>(null);
+  const [isHomeCropOpen, setIsHomeCropOpen] = useState(false);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [isDraggingCrop, setIsDraggingCrop] = useState(false);
+  const [dragStartCrop, setDragStartCrop] = useState({ x: 0, y: 0 });
 
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
   const [selectedCharacter, setSelectedCharacter] = useState('ทั้งหมด');
@@ -298,37 +366,153 @@ export default function UmaShopPage() {
     setLoadingGifIdx(Math.floor(Math.random() * LOADING_GIFS.length));
     const timer = setTimeout(() => {
       setIsLoadingScreen(false);
-    }, 650);
+    }, 600);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleGoToAuth = () => {
-    triggerGifLoader('กำลังเปิดหน้าเข้าสู่ระบบ / สมัครบัญชี...', 700, () => {
-      router.push('/auth');
-    });
-  };
+  const syncUserToForm = useCallback((user: User | null) => {
+    setCurrentUser(user);
+    if (user) {
+      const name = user.user_metadata?.display_name || user.email?.split('@')[0] || 'เทรนเนอร์';
+      const bio = user.user_metadata?.bio || 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน';
+      const avatar = user.user_metadata?.avatar_url || null;
+      setCustomerName((prev) => prev || name);
+      setEditName(name);
+      setEditBio(bio);
+      setEditAvatarPreview(avatar);
+      setEditAvatarBase64(null);
+    }
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      const user = session?.user ?? null;
-      setCurrentUser(user);
-      if (user?.user_metadata?.display_name) {
-        setCustomerName((prev) => prev || user.user_metadata.display_name);
-      }
+      syncUserToForm(session?.user ?? null);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user ?? null;
-      setCurrentUser(user);
-      if (user?.user_metadata?.display_name) {
-        setCustomerName((prev) => prev || user.user_metadata.display_name);
-      }
+      syncUserToForm(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [syncUserToForm]);
+
+  const handleProfileButtonClick = () => {
+    if (currentUser) {
+      setIsEditingProfile(false);
+      setEditName(
+        currentUser.user_metadata?.display_name ||
+          currentUser.email?.split('@')[0] ||
+          'เทรนเนอร์'
+      );
+      setEditBio(currentUser.user_metadata?.bio || 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน');
+      setEditAvatarPreview(currentUser.user_metadata?.avatar_url || null);
+      setEditAvatarBase64(null);
+      setIsProfileCardOpen(true);
+    } else {
+      triggerGifLoader('กำลังเปิดหน้าเข้าสู่ระบบ / สมัครสมาชิก...', 650, () => {
+        router.push('/auth');
+      });
+    }
+  };
+
+  const handleSelectEditAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')) {
+      alert('ไม่รองรับไฟล์ GIF ครับ กรุณาเลือกเฉพาะรูปภาพ (JPG, PNG, WEBP)');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setRawCropSrc((ev.target?.result as string) || null);
+      setCropZoom(1);
+      setCropOffset({ x: 0, y: 0 });
+      setIsHomeCropOpen(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleConfirmHomeCrop = async () => {
+    if (!rawCropSrc) return;
+    try {
+      const { dataUrl, base64Clean } = await cropAvatarCircleHome(
+        rawCropSrc,
+        cropZoom,
+        cropOffset.x,
+        cropOffset.y,
+        360,
+        190
+      );
+      setEditAvatarPreview(dataUrl);
+      setEditAvatarBase64(base64Clean);
+      setIsHomeCropOpen(false);
+    } catch {
+      alert('ไม่สามารถตัดกรอบรูปได้ กรุณาลองใหม่อีกครั้งครับ');
+    }
+  };
+
+  const handleSaveProfileCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    setIsSavingProfile(true);
+
+    let finalAvatarUrl = editAvatarPreview;
+
+    if (editAvatarBase64) {
+      try {
+        const formData = new FormData();
+        formData.append('key', IMGBB_API_KEY);
+        formData.append('image', editAvatarBase64);
+        formData.append('name', `trainer-avatar-${Date.now()}`);
+
+        const res = await fetch('https://api.imgbb.com/1/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (data?.success && data?.data?.url) {
+          finalAvatarUrl = data.data.url as string;
+        }
+      } catch (err) {
+        console.error('อัปโหลดรูปโปรไฟล์ใหม่ไม่สำเร็จ:', err);
+      }
+    }
+
+    const cleanNewName = editName.trim() || 'เทรนเนอร์';
+    const cleanNewBio = editBio.trim() || 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน';
+
+    const { data, error } = await supabase.auth.updateUser({
+      data: {
+        display_name: cleanNewName,
+        bio: cleanNewBio,
+        avatar_url: finalAvatarUrl,
+      },
+    });
+
+    setIsSavingProfile(false);
+
+    if (error) {
+      alert('บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้งครับ');
+      return;
+    }
+
+    if (data.user) {
+      setCurrentUser(data.user);
+      setCustomerName(cleanNewName);
+    }
+    setIsEditingProfile(false);
+    showToast('บันทึกข้อมูลนามบัตรเรียบร้อยแล้ว!');
+  };
+
+  const handleLogoutFromCard = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    setIsProfileCardOpen(false);
+    showToast('ออกจากระบบเรียบร้อยแล้ว');
+  };
 
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 320);
@@ -343,6 +527,8 @@ export default function UmaShopPage() {
         setIsCartOpen(false);
         setIsWishlistOpen(false);
         setIsOrdersOpen(false);
+        setIsProfileCardOpen(false);
+        setIsHomeCropOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -649,7 +835,7 @@ export default function UmaShopPage() {
 
     const orderTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
     const generatedOrderId = `TRC-${Math.floor(100000 + Math.random() * 900000)}`;
-    const memberEmail = currentUser?.email || 'ไม่ได้เข้าสู่ระบบ (Guest)';
+    const memberName = currentUser?.user_metadata?.display_name || 'ไม่ได้เข้าสู่ระบบ (Guest)';
 
     try {
       const response = await fetch('https://api.web3forms.com/submit', {
@@ -663,7 +849,7 @@ export default function UmaShopPage() {
           subject: `[Tracen Collectibles] คำสั่งซื้อ ${generatedOrderId} จากคุณ ${customerName} (฿${grandTotal.toLocaleString()})`,
           from_name: 'Tracen Collectibles Store',
           รหัสคำสั่งซื้อ: generatedOrderId,
-          บัญชีสมาชิกที่สั่งซื้อ: memberEmail,
+          บัญชีสมาชิกที่สั่งซื้อ: memberName,
           ชื่อผู้รับ: customerName,
           ที่อยู่จัดส่งและเบอร์โทร: address,
           รายการสินค้า: itemListText,
@@ -722,26 +908,618 @@ export default function UmaShopPage() {
     currentUser?.email?.split('@')[0] ||
     'สมาชิก';
 
+  const userBio =
+    currentUser?.user_metadata?.bio || 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน';
+
   const currentAvatarUrl: string | null = currentUser?.user_metadata?.avatar_url || null;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900 pb-24 md:pb-0">
-      {/* หน้าโหลดสีสดใสพร้อมสลับภาพ GIF เคลื่อนไหว */}
+      {/* หน้าโหลดสีสดใสพร้อมสลับ GIF */}
       {isLoadingScreen && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-500 via-teal-500 to-amber-400 p-6 text-white">
-          <div className="w-full max-w-xs rounded-3xl bg-white/20 backdrop-blur-md border border-white/40 p-5 shadow-2xl flex flex-col items-center gap-4 text-center">
-            <div className="h-36 w-36 rounded-2xl overflow-hidden bg-white shadow-lg border-2 border-white">
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'linear-gradient(135deg, #10b981 0%, #14b8a6 50%, #f59e0b 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+          }}
+        >
+          <div
+            style={{
+              background: 'rgba(255,255,255,0.22)',
+              backdropFilter: 'blur(12px)',
+              borderRadius: '24px',
+              border: '1px solid rgba(255,255,255,0.45)',
+              padding: '20px',
+              width: '280px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '14px',
+              textAlign: 'center',
+              color: '#ffffff',
+            }}
+          >
+            <div
+              style={{
+                width: '136px',
+                height: '136px',
+                borderRadius: '18px',
+                overflow: 'hidden',
+                border: '2px solid #ffffff',
+                background: '#ffffff',
+              }}
+            >
               <img
                 src={LOADING_GIFS[loadingGifIdx]}
                 alt="กำลังโหลด"
-                className="h-full w-full object-cover"
+                style={{ width: '136px', height: '136px', objectFit: 'cover', display: 'block' }}
               />
             </div>
-            <div className="space-y-1">
-              <p className="text-sm font-extrabold drop-shadow-xs">{loadingText}</p>
-              <p className="text-[11px] text-white/90 font-medium">
-                Tracen Collectibles • สลับภาพ GIF อัตโนมัติ
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: 800, margin: 0 }}>{loadingText}</p>
+              <p style={{ fontSize: '11px', opacity: 0.9, marginTop: '4px' }}>
+                Tracen Collectibles {APP_VERSION}
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pop-up นามบัตรเทรนเนอร์ (แสดงเมื่อคลิกรูปโปรไฟล์ด้านบน) */}
+      {isProfileCardOpen && currentUser && (
+        <div
+          onClick={() => setIsProfileCardOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9990,
+            background: 'rgba(15, 23, 42, 0.72)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              background: '#ffffff',
+              borderRadius: '28px',
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.45)',
+            }}
+          >
+            {/* แถบหัวนามบัตร */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #065f46 0%, #0d9488 100%)',
+                padding: '18px 22px 46px 22px',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Award style={{ width: '18px', height: '18px', color: '#fde68a' }} />
+                <span style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.03em' }}>
+                  TRACEN TRAINER CARD
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsProfileCardOpen(false)}
+                style={{
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '9999px',
+                  border: 'none',
+                  background: 'rgba(255,255,255,0.18)',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <X style={{ width: '16px', height: '16px' }} />
+              </button>
+            </div>
+
+            {/* ส่วนตัวนามบัตร */}
+            <div style={{ padding: '0 24px 24px 24px', marginTop: '-36px' }}>
+              {isEditingProfile ? (
+                <form
+                  onSubmit={handleSaveProfileCard}
+                  style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+                >
+                  {/* รูปโปรไฟล์วงกลม + ปุ่มเปลี่ยนรูป */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ position: 'relative', width: '84px', height: '84px' }}>
+                      <div
+                        style={{
+                          width: '84px',
+                          height: '84px',
+                          borderRadius: '9999px',
+                          overflow: 'hidden',
+                          border: '4px solid #ffffff',
+                          background: '#059669',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '28px',
+                          fontWeight: 800,
+                          boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
+                        }}
+                      >
+                        {editAvatarPreview ? (
+                          <img
+                            src={editAvatarPreview}
+                            alt="avatar"
+                            style={{
+                              width: '84px',
+                              height: '84px',
+                              objectFit: 'cover',
+                              display: 'block',
+                            }}
+                          />
+                        ) : (
+                          editName.charAt(0).toUpperCase() || 'T'
+                        )}
+                      </div>
+                      <label
+                        title="เปลี่ยนรูปโปรไฟล์"
+                        style={{
+                          position: 'absolute',
+                          bottom: '0',
+                          right: '0',
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '9999px',
+                          background: '#059669',
+                          border: '2px solid #ffffff',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Camera style={{ width: '14px', height: '14px' }} />
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={handleSelectEditAvatarFile}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '6px' }}>
+                      แตะไอคอนกล้องเพื่อเปลี่ยนรูปโปรไฟล์ใหม่
+                    </span>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#475569',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      ชื่อเทรนเนอร์
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        borderRadius: '12px',
+                        border: '1px solid #cbd5e1',
+                        padding: '8px 12px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#475569',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      คำอธิบายบนนามบัตร (แนะนำตัว / ตัวละครที่ชอบ)
+                    </label>
+                    <textarea
+                      rows={2}
+                      maxLength={120}
+                      placeholder="เช่น สะสมฟิกเกอร์ Oguri Cap และ Tokai Teio..."
+                      value={editBio}
+                      onChange={(e) => setEditBio(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        borderRadius: '12px',
+                        border: '1px solid #cbd5e1',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', paddingTop: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProfile(false)}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        borderRadius: '14px',
+                        border: '1px solid #e2e8f0',
+                        background: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: '#475569',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingProfile}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        borderRadius: '14px',
+                        border: 'none',
+                        background: '#059669',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: '#ffffff',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {isSavingProfile ? (
+                        <Loader2 className="animate-spin" style={{ width: '15px', height: '15px' }} />
+                      ) : (
+                        <Save style={{ width: '15px', height: '15px' }} />
+                      )}
+                      <span>{isSavingProfile ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}</span>
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* รูปโปรไฟล์วงกลม + ชื่อ */}
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '14px' }}>
+                    <div
+                      style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '9999px',
+                        overflow: 'hidden',
+                        border: '4px solid #ffffff',
+                        background: '#059669',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '28px',
+                        fontWeight: 800,
+                        boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {currentAvatarUrl ? (
+                        <img
+                          src={currentAvatarUrl}
+                          alt={displayUserName}
+                          style={{
+                            width: '80px',
+                            height: '80px',
+                            objectFit: 'cover',
+                            display: 'block',
+                          }}
+                        />
+                      ) : (
+                        displayUserName.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div style={{ paddingBottom: '4px', minWidth: 0 }}>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          background: '#fef3c7',
+                          color: '#92400e',
+                          borderRadius: '9999px',
+                          padding: '2px 10px',
+                          fontSize: '10px',
+                          fontWeight: 800,
+                        }}
+                      >
+                        OFFICIAL TRAINER
+                      </span>
+                      <h3
+                        style={{
+                          fontSize: '19px',
+                          fontWeight: 800,
+                          color: '#0f172a',
+                          margin: '4px 0 0 0',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {displayUserName}
+                      </h3>
+                    </div>
+                  </div>
+
+                  {/* กล่องคำอธิบายบนนามบัตร */}
+                  <div
+                    style={{
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '16px',
+                      padding: '12px 14px',
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        color: '#94a3b8',
+                        margin: '0 0 4px 0',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      คำอธิบาย / แนะนำตัว
+                    </p>
+                    <p
+                      style={{
+                        fontSize: '13px',
+                        color: '#334155',
+                        margin: 0,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {userBio}
+                    </p>
+                  </div>
+
+                  {/* ปุ่มแก้ไขข้อมูล & ออกจากระบบ */}
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProfile(true)}
+                      style={{
+                        flex: 1,
+                        padding: '11px',
+                        borderRadius: '14px',
+                        border: 'none',
+                        background: '#059669',
+                        color: '#ffffff',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Edit3 style={{ width: '15px', height: '15px' }} />
+                      <span>แก้ไขข้อมูล</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleLogoutFromCard}
+                      style={{
+                        padding: '11px 14px',
+                        borderRadius: '14px',
+                        border: '1px solid #fecdd3',
+                        background: '#fff1f2',
+                        color: '#be123c',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px',
+                        cursor: 'pointer',
+                      }}
+                      title="ออกจากระบบ"
+                    >
+                      <LogOut style={{ width: '15px', height: '15px' }} />
+                      <span>ออก</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pop-up ครอปรูปวงกลมตอนแก้ไขในนามบัตร */}
+      {isHomeCropOpen && rawCropSrc && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9995,
+            background: 'rgba(2, 6, 23, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '340px',
+              background: '#ffffff',
+              borderRadius: '24px',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '14px',
+              }}
+            >
+              <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                ปรับกรอบรูปโปรไฟล์ใหม่
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsHomeCropOpen(false)}
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '9999px',
+                  border: 'none',
+                  background: '#f1f5f9',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div
+                onPointerDown={(e) => {
+                  setIsDraggingCrop(true);
+                  setDragStartCrop({
+                    x: e.clientX - cropOffset.x,
+                    y: e.clientY - cropOffset.y,
+                  });
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  if (!isDraggingCrop) return;
+                  setCropOffset({
+                    x: Math.max(-95, Math.min(95, e.clientX - dragStartCrop.x)),
+                    y: Math.max(-95, Math.min(95, e.clientY - dragStartCrop.y)),
+                  });
+                }}
+                onPointerUp={() => setIsDraggingCrop(false)}
+                style={{
+                  width: '190px',
+                  height: '190px',
+                  borderRadius: '9999px',
+                  overflow: 'hidden',
+                  border: '4px solid #10b981',
+                  background: '#0f172a',
+                  touchAction: 'none',
+                  cursor: 'grab',
+                }}
+              >
+                <img
+                  src={rawCropSrc}
+                  alt="crop"
+                  draggable={false}
+                  style={{
+                    width: '190px',
+                    height: '190px',
+                    objectFit: 'cover',
+                    transform: `translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropZoom})`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#f8fafc',
+                padding: '8px 12px',
+                borderRadius: '12px',
+              }}
+            >
+              <ZoomIn style={{ width: '15px', height: '15px', color: '#059669' }} />
+              <input
+                type="range"
+                min={1}
+                max={2.6}
+                step={0.05}
+                value={cropZoom}
+                onChange={(e) => setCropZoom(parseFloat(e.target.value))}
+                style={{ flex: 1, accentColor: '#059669' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+              <button
+                type="button"
+                onClick={() => setIsHomeCropOpen(false)}
+                style={{
+                  flex: 1,
+                  padding: '9px',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  background: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmHomeCrop}
+                style={{
+                  flex: 1,
+                  padding: '9px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: '#059669',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                }}
+              >
+                <Crop style={{ width: '14px', height: '14px' }} />
+                <span>ใช้รูปนี้</span>
+              </button>
             </div>
           </div>
         </div>
@@ -936,31 +1714,37 @@ export default function UmaShopPage() {
               )}
             </button>
 
+            {/* ปุ่มโปรไฟล์ด้านบน: ถ้าล็อกอินแล้วกดเพื่อเปิดนามบัตรเทรนเนอร์ */}
             <button
               type="button"
-              onClick={handleGoToAuth}
+              onClick={handleProfileButtonClick}
               className={`group relative flex items-center gap-2 h-9 sm:h-10 rounded-full border pl-2 pr-3.5 sm:pr-4 text-xs sm:text-sm font-semibold hover:-translate-y-0.5 active:scale-95 transition-all duration-200 ${
                 currentUser
                   ? 'border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-800 hover:shadow-md hover:shadow-emerald-100'
                   : 'border-slate-200/90 bg-white text-slate-700 hover:border-emerald-400 hover:bg-emerald-50/50 hover:text-emerald-800 hover:shadow-md hover:shadow-slate-100'
               }`}
-              title={currentUser ? `บัญชี: ${currentUser.email}` : 'เข้าสู่ระบบ / สมัครบัญชี'}
+              title={currentUser ? 'คลิกเพื่อเปิดนามบัตรเทรนเนอร์' : 'เข้าสู่ระบบ / สมัครบัญชี'}
             >
-              <div className="relative h-6 w-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center overflow-hidden shrink-0">
+              <div
+                style={{
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '9999px',
+                  overflow: 'hidden',
+                }}
+                className="relative bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0"
+              >
                 {currentAvatarUrl ? (
                   <img
                     src={currentAvatarUrl}
                     alt={displayUserName}
-                    className="h-full w-full object-cover"
+                    style={{ width: '26px', height: '26px', objectFit: 'cover', display: 'block' }}
                   />
                 ) : (
                   <UserCircle2 className="h-4 w-4 group-hover:scale-110 group-hover:text-emerald-600 transition-transform duration-200" />
                 )}
-                {currentUser && (
-                  <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-white" />
-                )}
               </div>
-              <span className="max-w-[80px] sm:max-w-[110px] truncate">
+              <span className="max-w-[85px] sm:max-w-[115px] truncate">
                 {currentUser ? displayUserName : 'เข้าสู่ระบบ'}
               </span>
             </button>
@@ -1067,7 +1851,7 @@ export default function UmaShopPage() {
               <CreditCard className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-bold text-slate-900 text-xs sm:text-sm">ระบบสมาชิกข้ามเครื่อง</p>
+              <p className="font-bold text-slate-900 text-xs sm:text-sm">ระบบนามบัตรเทรนเนอร์</p>
               <p className="text-slate-500 mt-0.5">ล็อกอินได้ทุกอุปกรณ์</p>
             </div>
           </div>
@@ -1329,13 +2113,13 @@ export default function UmaShopPage() {
 
         <button
           type="button"
-          onClick={handleGoToAuth}
+          onClick={handleProfileButtonClick}
           className={`flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-medium active:scale-95 transition ${
             currentUser ? 'text-emerald-700 font-bold' : 'text-slate-600'
           }`}
         >
           <UserCircle2 className="h-5 w-5" />
-          <span>{currentUser ? 'บัญชีฉัน' : 'ล็อกอิน'}</span>
+          <span>{currentUser ? 'นามบัตร' : 'ล็อกอิน'}</span>
         </button>
       </nav>
 
