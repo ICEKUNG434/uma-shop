@@ -45,7 +45,7 @@ import {
   Award,
 } from 'lucide-react';
 
-const APP_VERSION = 'v3.7';
+const APP_VERSION = 'v3.8';
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 
@@ -295,6 +295,7 @@ export default function UmaShopPage() {
   const [loadingGifIdx, setLoadingGifIdx] = useState(0);
   const [loadingText, setLoadingText] = useState('กำลังโหลดร้าน Tracen Collectibles...');
 
+  // State สำหรับ Pop-up นามบัตรเทรนเนอร์ 3D เคลื่อนไหว + แก้ไขข้อมูล
   const [isProfileCardOpen, setIsProfileCardOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
@@ -302,6 +303,7 @@ export default function UmaShopPage() {
   const [editAvatarPreview, setEditAvatarPreview] = useState<string | null>(null);
   const [editAvatarBase64, setEditAvatarBase64] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [cardTilt, setCardTilt] = useState({ rotateX: 0, rotateY: 0, glareX: 50, glareY: 50 });
 
   const [rawCropSrc, setRawCropSrc] = useState<string | null>(null);
   const [isHomeCropOpen, setIsHomeCropOpen] = useState(false);
@@ -371,29 +373,59 @@ export default function UmaShopPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const syncUserToForm = useCallback((user: User | null) => {
-    setCurrentUser(user);
-    const localSavedAvatar =
-      typeof window !== 'undefined' ? localStorage.getItem('tracen_cached_avatar') : null;
-    if (localSavedAvatar) {
-      setCachedAvatar(localSavedAvatar);
-    }
+  const saveProfileToDirectory = useCallback(
+    (name: string, emailVal: string, avatarVal: string | null) => {
+      try {
+        const rawDir = localStorage.getItem('tracen_saved_profiles');
+        const list: { name: string; email: string; avatar: string | null }[] = rawDir
+          ? JSON.parse(rawDir)
+          : [];
+        const filtered = list.filter(
+          (p) => p.email.toLowerCase() !== emailVal.toLowerCase()
+        );
+        const updated = [{ name, email: emailVal, avatar: avatarVal }, ...filtered].slice(0, 6);
+        localStorage.setItem('tracen_saved_profiles', JSON.stringify(updated));
 
-    if (user) {
-      const name = user.user_metadata?.display_name || user.email?.split('@')[0] || 'เทรนเนอร์';
-      const bio = user.user_metadata?.bio || 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน';
-      const avatar = user.user_metadata?.avatar_url || localSavedAvatar || null;
-      setCustomerName((prev) => prev || name);
-      setEditName(name);
-      setEditBio(bio);
-      setEditAvatarPreview(avatar);
-      setEditAvatarBase64(null);
-      if (avatar && typeof window !== 'undefined') {
-        localStorage.setItem('tracen_cached_avatar', avatar);
-        setCachedAvatar(avatar);
+        const rawMap = localStorage.getItem('tracen_trainer_directory');
+        const map = rawMap ? JSON.parse(rawMap) : {};
+        map[name.toLowerCase()] = emailVal;
+        localStorage.setItem('tracen_trainer_directory', JSON.stringify(map));
+      } catch {
+        // ignore
       }
-    }
-  }, []);
+    },
+    []
+  );
+
+  const syncUserToForm = useCallback(
+    (user: User | null) => {
+      setCurrentUser(user);
+      const localSavedAvatar =
+        typeof window !== 'undefined' ? localStorage.getItem('tracen_cached_avatar') : null;
+      if (localSavedAvatar) {
+        setCachedAvatar(localSavedAvatar);
+      }
+
+      if (user) {
+        const name = user.user_metadata?.display_name || user.email?.split('@')[0] || 'เทรนเนอร์';
+        const bio = user.user_metadata?.bio || 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน';
+        const avatar = user.user_metadata?.avatar_url || localSavedAvatar || null;
+        setCustomerName((prev) => prev || name);
+        setEditName(name);
+        setEditBio(bio);
+        setEditAvatarPreview(avatar);
+        setEditAvatarBase64(null);
+        if (avatar && typeof window !== 'undefined') {
+          localStorage.setItem('tracen_cached_avatar', avatar);
+          setCachedAvatar(avatar);
+        }
+        if (user.email) {
+          saveProfileToDirectory(name, user.email, avatar);
+        }
+      }
+    },
+    [saveProfileToDirectory]
+  );
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -415,6 +447,7 @@ export default function UmaShopPage() {
   const handleProfileButtonClick = () => {
     if (currentUser) {
       setIsEditingProfile(false);
+      setCardTilt({ rotateX: 0, rotateY: 0, glareX: 50, glareY: 50 });
       setEditName(
         currentUser.user_metadata?.display_name ||
           currentUser.email?.split('@')[0] ||
@@ -425,10 +458,28 @@ export default function UmaShopPage() {
       setEditAvatarBase64(null);
       setIsProfileCardOpen(true);
     } else {
-      triggerGifLoader('กำลังเปิดหน้าเข้าสู่ระบบ / สมัครสมาชิก...', 650, () => {
+      triggerGifLoader('กำลังเปิดหน้าเลือกผู้ใช้งาน...', 650, () => {
         router.push('/auth');
       });
     }
+  };
+
+  const handleCardMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isEditingProfile) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const rotateY = ((x - centerX) / centerX) * 8;
+    const rotateX = -((y - centerY) / centerY) * 8;
+    const glareX = Math.round((x / rect.width) * 100);
+    const glareY = Math.round((y / rect.height) * 100);
+    setCardTilt({ rotateX, rotateY, glareX, glareY });
+  };
+
+  const handleCardMouseLeave = () => {
+    setCardTilt({ rotateX: 0, rotateY: 0, glareX: 50, glareY: 50 });
   };
 
   const handleSelectEditAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -518,14 +569,7 @@ export default function UmaShopPage() {
       setCachedAvatar(finalAvatarUrl);
     }
     if (currentUser.email) {
-      try {
-        const rawMap = localStorage.getItem('tracen_trainer_directory');
-        const map = rawMap ? JSON.parse(rawMap) : {};
-        map[cleanNewName.toLowerCase()] = currentUser.email;
-        localStorage.setItem('tracen_trainer_directory', JSON.stringify(map));
-      } catch {
-        // ignore
-      }
+      saveProfileToDirectory(cleanNewName, currentUser.email, finalAvatarUrl);
     }
 
     if (data.user) {
@@ -537,13 +581,18 @@ export default function UmaShopPage() {
   };
 
   const handleLogoutFromCard = async () => {
+    if (currentUser?.email) {
+      saveProfileToDirectory(displayUserName, currentUser.email, activeAvatarUrl);
+    }
     await supabase.auth.signOut();
     localStorage.removeItem('tracen_cached_avatar');
     localStorage.removeItem('tracen_cached_name');
     setCachedAvatar(null);
     setCurrentUser(null);
     setIsProfileCardOpen(false);
-    showToast('ออกจากระบบเรียบร้อยแล้ว');
+    triggerGifLoader('ออกจากระบบแล้ว กำลังเปิดหน้าเลือกผู้ใช้งาน...', 650, () => {
+      router.push('/auth');
+    });
   };
 
   useEffect(() => {
@@ -1001,7 +1050,7 @@ export default function UmaShopPage() {
         </div>
       )}
 
-      {/* Pop-up นามบัตรเทรนเนอร์ */}
+      {/* Pop-up นามบัตรเทรนเนอร์ 3D โฮโลแกรมเคลื่อนไหว */}
       {isProfileCardOpen && currentUser && (
         <div
           onClick={() => setIsProfileCardOpen(false)}
@@ -1009,38 +1058,62 @@ export default function UmaShopPage() {
             position: 'fixed',
             inset: 0,
             zIndex: 9990,
-            background: 'rgba(15, 23, 42, 0.72)',
-            backdropFilter: 'blur(5px)',
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: '16px',
+            perspective: '1000px',
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
+            onMouseMove={handleCardMouseMove}
+            onMouseLeave={handleCardMouseLeave}
+            className="trainer-card-pop"
             style={{
               width: '100%',
               maxWidth: '400px',
               background: '#ffffff',
               borderRadius: '28px',
               overflow: 'hidden',
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.45)',
+              boxShadow: '0 28px 60px -12px rgba(0, 0, 0, 0.55)',
+              transform: `rotateX(${cardTilt.rotateX}deg) rotateY(${cardTilt.rotateY}deg)`,
+              transition: 'transform 0.15s ease-out',
+              position: 'relative',
             }}
           >
+            {/* แสงสะท้อนโฮโลแกรมวิ่งตามเมาส์บนนามบัตร */}
             <div
               style={{
-                background: 'linear-gradient(135deg, #065f46 0%, #0d9488 100%)',
-                padding: '18px 22px 46px 22px',
+                pointerEvents: 'none',
+                position: 'absolute',
+                inset: 0,
+                zIndex: 20,
+                background: `radial-gradient(circle at ${cardTilt.glareX}% ${cardTilt.glareY}%, rgba(255,255,255,0.34) 0%, rgba(251,191,36,0.12) 35%, transparent 70%)`,
+                mixBlendMode: 'overlay',
+              }}
+            />
+
+            {/* แถบหัวนามบัตรไล่เฉดเคลื่อนไหว */}
+            <div
+              className="card-header-shimmer"
+              style={{
+                padding: '18px 22px 48px 22px',
                 color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                position: 'relative',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Award style={{ width: '18px', height: '18px', color: '#fde68a' }} />
-                <span style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.03em' }}>
+                <Award
+                  className="animate-bounce"
+                  style={{ width: '18px', height: '18px', color: '#fde68a' }}
+                />
+                <span style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.04em' }}>
                   TRACEN TRAINER CARD
                 </span>
               </div>
@@ -1052,19 +1125,20 @@ export default function UmaShopPage() {
                   height: '30px',
                   borderRadius: '9999px',
                   border: 'none',
-                  background: 'rgba(255,255,255,0.18)',
+                  background: 'rgba(255,255,255,0.2)',
                   color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
+                  zIndex: 30,
                 }}
               >
                 <X style={{ width: '16px', height: '16px' }} />
               </button>
             </div>
 
-            <div style={{ padding: '0 24px 24px 24px', marginTop: '-36px' }}>
+            <div style={{ padding: '0 24px 24px 24px', marginTop: '-38px', position: 'relative', zIndex: 25 }}>
               {isEditingProfile ? (
                 <form
                   onSubmit={handleSaveProfileCard}
@@ -1244,9 +1318,10 @@ export default function UmaShopPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '14px' }}>
                     <div
+                      className="avatar-glow-ring"
                       style={{
-                        width: '80px',
-                        height: '80px',
+                        width: '82px',
+                        height: '82px',
                         borderRadius: '9999px',
                         overflow: 'hidden',
                         border: '4px solid #ffffff',
@@ -1257,7 +1332,6 @@ export default function UmaShopPage() {
                         justifyContent: 'center',
                         fontSize: '28px',
                         fontWeight: 800,
-                        boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
                         flexShrink: 0,
                       }}
                     >
@@ -1266,8 +1340,8 @@ export default function UmaShopPage() {
                           src={activeAvatarUrl}
                           alt={displayUserName}
                           style={{
-                            width: '80px',
-                            height: '80px',
+                            width: '82px',
+                            height: '82px',
                             objectFit: 'cover',
                             display: 'block',
                           }}
@@ -1279,8 +1353,10 @@ export default function UmaShopPage() {
                     <div style={{ paddingBottom: '4px', minWidth: 0 }}>
                       <span
                         style={{
-                          display: 'inline-block',
-                          background: '#fef3c7',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          background: 'linear-gradient(90deg, #fef3c7, #fde68a)',
                           color: '#92400e',
                           borderRadius: '9999px',
                           padding: '2px 10px',
@@ -1288,7 +1364,8 @@ export default function UmaShopPage() {
                           fontWeight: 800,
                         }}
                       >
-                        OFFICIAL TRAINER
+                        <Sparkles style={{ width: '11px', height: '11px' }} />
+                        <span>OFFICIAL TRAINER</span>
                       </span>
                       <h3
                         style={{
@@ -1346,7 +1423,7 @@ export default function UmaShopPage() {
                         padding: '11px',
                         borderRadius: '14px',
                         border: 'none',
-                        background: '#059669',
+                        background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
                         color: '#ffffff',
                         fontSize: '13px',
                         fontWeight: 700,
@@ -1355,6 +1432,7 @@ export default function UmaShopPage() {
                         justifyContent: 'center',
                         gap: '6px',
                         cursor: 'pointer',
+                        boxShadow: '0 6px 16px -4px rgba(5, 150, 105, 0.45)',
                       }}
                     >
                       <Edit3 style={{ width: '15px', height: '15px' }} />
@@ -1378,10 +1456,10 @@ export default function UmaShopPage() {
                         gap: '5px',
                         cursor: 'pointer',
                       }}
-                      title="ออกจากระบบ"
+                      title="ออกจากระบบและไปหน้าเลือกผู้ใช้งาน"
                     >
                       <LogOut style={{ width: '15px', height: '15px' }} />
-                      <span>ออก</span>
+                      <span>ออกจากระบบ</span>
                     </button>
                   </div>
                 </div>
@@ -1593,6 +1671,39 @@ export default function UmaShopPage() {
             transform: scale(1.25);
           }
         }
+        @keyframes cardPopIn {
+          0% {
+            opacity: 0;
+            transform: scale(0.84) translateY(22px);
+          }
+          70% {
+            opacity: 1;
+            transform: scale(1.02) translateY(-3px);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+        @keyframes ringPulse {
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45), 0 6px 16px rgba(0, 0, 0, 0.15);
+          }
+          50% {
+            box-shadow: 0 0 0 7px rgba(16, 185, 129, 0), 0 6px 16px rgba(0, 0, 0, 0.15);
+          }
+        }
+        .trainer-card-pop {
+          animation: cardPopIn 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .card-header-shimmer {
+          background: linear-gradient(120deg, #065f46, #0d9488, #047857, #115e59);
+          background-size: 260% 260%;
+          animation: gradientWave 6s ease infinite;
+        }
+        .avatar-glow-ring {
+          animation: ringPulse 2.4s infinite;
+        }
         .banner-animated-bg {
           background: linear-gradient(-45deg, #064e3b, #0f766e, #047857, #115e59, #065f46);
           background-size: 300% 300%;
@@ -1738,16 +1849,16 @@ export default function UmaShopPage() {
               )}
             </button>
 
-            {/* ปุ่มโปรไฟล์ด้านบน */}
+            {/* ปุ่มโปรไฟล์ด้านบน พร้อมลูกเล่นเด้งหมุนรูปและแสงเงา */}
             <button
               type="button"
               onClick={handleProfileButtonClick}
-              className={`group relative flex items-center gap-2 h-9 sm:h-10 rounded-full border pl-2 pr-3.5 sm:pr-4 text-xs sm:text-sm font-semibold hover:-translate-y-0.5 active:scale-95 transition-all duration-200 ${
+              className={`group relative overflow-hidden cart-shimmer flex items-center gap-2 h-9 sm:h-10 rounded-full border pl-2 pr-3.5 sm:pr-4 text-xs sm:text-sm font-semibold hover:-translate-y-0.5 active:scale-95 transition-all duration-200 ${
                 currentUser
-                  ? 'border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-800 hover:shadow-md hover:shadow-emerald-100'
+                  ? 'border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-800 hover:shadow-md hover:shadow-emerald-200/70'
                   : 'border-slate-200/90 bg-white text-slate-700 hover:border-emerald-400 hover:bg-emerald-50/50 hover:text-emerald-800 hover:shadow-md hover:shadow-slate-100'
               }`}
-              title={currentUser ? 'คลิกเพื่อเปิดนามบัตรเทรนเนอร์' : 'เข้าสู่ระบบ / สมัครบัญชี'}
+              title={currentUser ? 'คลิกเพื่อเปิดนามบัตรเทรนเนอร์ 3D' : 'เลือกผู้ใช้งาน / สมัครบัญชี'}
             >
               <div
                 style={{
@@ -1756,7 +1867,7 @@ export default function UmaShopPage() {
                   borderRadius: '9999px',
                   overflow: 'hidden',
                 }}
-                className="relative bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0"
+                className="relative bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 ring-2 ring-emerald-400/40 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-200"
               >
                 {activeAvatarUrl ? (
                   <img
@@ -1765,7 +1876,7 @@ export default function UmaShopPage() {
                     style={{ width: '26px', height: '26px', objectFit: 'cover', display: 'block' }}
                   />
                 ) : (
-                  <UserCircle2 className="h-4 w-4 group-hover:scale-110 group-hover:text-emerald-600 transition-transform duration-200" />
+                  <UserCircle2 className="h-4 w-4 group-hover:text-emerald-600 transition-colors" />
                 )}
               </div>
               <span className="max-w-[85px] sm:max-w-[115px] truncate">
@@ -1876,7 +1987,7 @@ export default function UmaShopPage() {
             </div>
             <div>
               <p className="font-bold text-slate-900 text-xs sm:text-sm">ระบบนามบัตรเทรนเนอร์</p>
-              <p className="text-slate-500 mt-0.5">ล็อกอินได้ทุกอุปกรณ์</p>
+              <p className="text-slate-500 mt-0.5">สลับบัญชีได้ทันที</p>
             </div>
           </div>
         </div>
