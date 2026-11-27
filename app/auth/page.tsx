@@ -26,10 +26,9 @@ import {
   Plus,
   MoreVertical,
   Trash2,
-  Users,
 } from 'lucide-react';
 
-const UI_VERSION = 'v6.0';
+const UI_VERSION = 'v5.5';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 const SUPABASE_URL = 'https://jwujhkuudfqpitouiqnw.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_EJM1vWSsz9qNrjRg20lx8A_M-FxsBMq';
@@ -41,54 +40,17 @@ const LOADING_GIFS = [
 ];
 
 const SAMPLE_TRAINER_NAMES = [
-  'Tazuna Hayakawa',
-  'Special Week',
-  'Tokai Teio',
-  'Oguri Cap',
-  'Rice Shower',
+  'TazunaHayakawa',
+  'SpecialWeek01',
+  'TokaiTeio',
+  'OguriCap',
+  'เทรนเนอร์ซากุระ',
 ];
 
-export interface SavedTrainerProfile {
+interface SavedTrainerProfile {
   name: string;
   email: string;
-  avatarUrl: string | null;
-  bio?: string;
-}
-
-function getSavedProfiles(): SavedTrainerProfile[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem('tracen_saved_profiles');
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveTrainerProfileToList(profile: SavedTrainerProfile) {
-  if (typeof window === 'undefined') return;
-  try {
-    const list = getSavedProfiles();
-    const idx = list.findIndex(
-      (p) =>
-        p.email.toLowerCase() === profile.email.toLowerCase() ||
-        p.name.toLowerCase() === profile.name.toLowerCase()
-    );
-    if (idx >= 0) {
-      list[idx] = { ...list[idx], ...profile };
-    } else {
-      list.unshift(profile);
-    }
-    localStorage.setItem('tracen_saved_profiles', JSON.stringify(list));
-
-    // อัปเดต directory จับคู่ชื่อ -> อีเมลด้วย
-    const rawMap = localStorage.getItem('tracen_trainer_directory');
-    const map = rawMap ? JSON.parse(rawMap) : {};
-    map[profile.name.toLowerCase()] = profile.email;
-    localStorage.setItem('tracen_trainer_directory', JSON.stringify(map));
-  } catch {
-    // ignore storage quota errors
-  }
+  avatar: string | null;
 }
 
 function isGifFile(file: File): boolean {
@@ -160,18 +122,17 @@ export default function AuthPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
 
+  // รายชื่อโปรไฟล์ผู้ใช้งานที่บันทึกไว้ (สไตล์ Brave Profile Picker)
+  const [savedProfiles, setSavedProfiles] = useState<SavedTrainerProfile[]>([]);
+  const [selectedProfile, setSelectedProfile] = useState<SavedTrainerProfile | null>(null);
+  const [showAuthForm, setShowAuthForm] = useState(false);
+  const [openMenuEmail, setOpenMenuEmail] = useState<string | null>(null);
+
   const [isLoadingScreen, setIsLoadingScreen] = useState(true);
   const [loadingGifIdx, setLoadingGifIdx] = useState(0);
-  const [loadingText, setLoadingText] = useState('กำลังเปิดระบบสมาชิก...');
+  const [loadingText, setLoadingText] = useState('กำลังเปิดหน้าเลือกผู้ใช้งาน...');
 
-  // รายชื่อโปรไฟล์ที่เคยสมัคร/ใช้งานในเครื่องนี้ (สไตล์ Brave Profile Picker)
-  const [savedProfiles, setSavedProfiles] = useState<SavedTrainerProfile[]>([]);
-  const [selectedQuickProfile, setSelectedQuickProfile] = useState<SavedTrainerProfile | null>(null);
-  const [menuOpenEmail, setMenuOpenEmail] = useState<string | null>(null);
-
-  // โหมดหน้าจอ: picker (เลือกโปรไฟล์) | login (กรอกรหัสผ่าน) | register (สมัครใหม่)
-  const [viewMode, setViewMode] = useState<'picker' | 'login' | 'register'>('login');
-
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [trainerName, setTrainerName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -201,21 +162,69 @@ export default function AuthPage() {
     }, durationMs);
   }, []);
 
+  const loadSavedProfiles = useCallback(() => {
+    try {
+      const raw = localStorage.getItem('tracen_saved_profiles');
+      const list: SavedTrainerProfile[] = raw ? JSON.parse(raw) : [];
+      setSavedProfiles(list);
+      // ถ้ามีโปรไฟล์ที่เคยสมัครไว้ ให้แสดงหน้าเลือกผู้ใช้งานก่อน
+      if (list.length > 0) {
+        setShowAuthForm(false);
+      } else {
+        setShowAuthForm(true);
+        setMode('register');
+      }
+    } catch {
+      setSavedProfiles([]);
+      setShowAuthForm(true);
+    }
+  }, []);
+
+  const saveProfileToDirectory = useCallback(
+    (name: string, emailVal: string, avatarVal: string | null) => {
+      try {
+        const raw = localStorage.getItem('tracen_saved_profiles');
+        const list: SavedTrainerProfile[] = raw ? JSON.parse(raw) : [];
+        const filtered = list.filter(
+          (p) => p.email.toLowerCase() !== emailVal.toLowerCase()
+        );
+        const updated = [{ name, email: emailVal, avatar: avatarVal }, ...filtered].slice(0, 6);
+        localStorage.setItem('tracen_saved_profiles', JSON.stringify(updated));
+        setSavedProfiles(updated);
+
+        const rawMap = localStorage.getItem('tracen_trainer_directory');
+        const map = rawMap ? JSON.parse(rawMap) : {};
+        map[name.toLowerCase()] = emailVal;
+        localStorage.setItem('tracen_trainer_directory', JSON.stringify(map));
+      } catch {
+        // ignore
+      }
+    },
+    []
+  );
+
+  const handleDeleteSavedProfile = (targetEmail: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = savedProfiles.filter(
+      (p) => p.email.toLowerCase() !== targetEmail.toLowerCase()
+    );
+    setSavedProfiles(next);
+    localStorage.setItem('tracen_saved_profiles', JSON.stringify(next));
+    setOpenMenuEmail(null);
+    if (next.length === 0) {
+      setShowAuthForm(true);
+      setMode('register');
+    }
+  };
+
   useEffect(() => {
     setLoadingGifIdx(Math.floor(Math.random() * LOADING_GIFS.length));
-    const profiles = getSavedProfiles();
-    setSavedProfiles(profiles);
-    if (profiles.length > 0) {
-      setViewMode('picker');
-    } else {
-      setViewMode('login');
-    }
-
+    loadSavedProfiles();
     const timer = setTimeout(() => {
       setIsLoadingScreen(false);
     }, 600);
     return () => clearTimeout(timer);
-  }, []);
+  }, [loadSavedProfiles]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -256,7 +265,7 @@ export default function AuthPage() {
   }, []);
 
   useEffect(() => {
-    if (viewMode !== 'register' || currentUser) return;
+    if (mode !== 'register' || currentUser || !showAuthForm) return;
 
     const handlePaste = (e: ClipboardEvent) => {
       const clipboardData = e.clipboardData;
@@ -286,7 +295,7 @@ export default function AuthPage() {
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [viewMode, currentUser, openCropPopupWithFile]);
+  }, [mode, currentUser, showAuthForm, openCropPopupWithFile]);
 
   const handlePasteButton = async () => {
     try {
@@ -368,25 +377,26 @@ export default function AuthPage() {
   };
 
   const handleSelectProfileCard = (profile: SavedTrainerProfile) => {
-    setSelectedQuickProfile(profile);
+    setSelectedProfile(profile);
     setTrainerName(profile.name);
     setPassword('');
     setErrorMsg(null);
     setSuccessMsg(null);
-    setViewMode('login');
+    setMode('login');
+    setShowAuthForm(true);
   };
 
-  const handleDeleteSavedProfile = (targetEmail: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const updated = savedProfiles.filter(
-      (p) => p.email.toLowerCase() !== targetEmail.toLowerCase()
-    );
-    setSavedProfiles(updated);
-    localStorage.setItem('tracen_saved_profiles', JSON.stringify(updated));
-    setMenuOpenEmail(null);
-    if (updated.length === 0) {
-      setViewMode('login');
-    }
+  const handleClickAddProfile = () => {
+    setSelectedProfile(null);
+    setTrainerName('');
+    setEmail('');
+    setPassword('');
+    setCroppedAvatarUrl(null);
+    setCroppedAvatarBase64(null);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setMode('register');
+    setShowAuthForm(true);
   };
 
   const uploadAvatarToImgBB = async (): Promise<string | null> => {
@@ -422,7 +432,7 @@ export default function AuthPage() {
       return;
     }
 
-    if (viewMode === 'register') {
+    if (mode === 'register') {
       const cleanEmail = email.trim();
       if (!cleanEmail) {
         setErrorMsg('กรุณากรอกอีเมลครับ');
@@ -461,19 +471,9 @@ export default function AuthPage() {
           return;
         }
 
-        // บันทึกลงรายการผู้ใช้งานของเครื่อง + แคชรูปโปรไฟล์
-        saveTrainerProfileToList({
-          name: cleanName,
-          email: cleanEmail,
-          avatarUrl: finalAvatar,
-          bio: 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน',
-        });
-        setSavedProfiles(getSavedProfiles());
-
+        saveProfileToDirectory(cleanName, cleanEmail, finalAvatar);
         if (finalAvatar) {
           localStorage.setItem('tracen_cached_avatar', finalAvatar);
-        } else {
-          localStorage.removeItem('tracen_cached_avatar');
         }
         localStorage.setItem('tracen_cached_name', cleanName);
 
@@ -494,33 +494,25 @@ export default function AuthPage() {
         setLoading(false);
       }
     } else {
-      // โหมดเข้าสู่ระบบ: กรอกชื่อเทรนเนอร์ + รหัสผ่าน (ไม่มีช่องอีเมล)
       setLoading(true);
 
-      let targetEmail = selectedQuickProfile?.email || '';
+      let targetEmail = selectedProfile?.email || '';
       if (!targetEmail) {
         if (cleanName.includes('@')) {
           targetEmail = cleanName;
         } else {
-          const foundInList = savedProfiles.find(
-            (p) => p.name.toLowerCase() === cleanName.toLowerCase()
-          );
-          if (foundInList) {
-            targetEmail = foundInList.email;
-          } else {
-            try {
-              const rawMap = localStorage.getItem('tracen_trainer_directory');
-              const map = rawMap ? JSON.parse(rawMap) : {};
-              targetEmail = map[cleanName.toLowerCase()] || '';
-            } catch {
-              targetEmail = '';
-            }
+          try {
+            const rawMap = localStorage.getItem('tracen_trainer_directory');
+            const map = rawMap ? JSON.parse(rawMap) : {};
+            targetEmail = map[cleanName.toLowerCase()] || '';
+          } catch {
+            targetEmail = '';
           }
         }
       }
 
       if (!targetEmail) {
-        setErrorMsg('ไม่พบชื่อเทรนเนอร์นี้ในระบบ กรุณากดสมัครสมาชิกใหม่ก่อนครับ');
+        setErrorMsg('ไม่พบชื่อเทรนเนอร์นี้ในระบบ กรุณาสมัครสมาชิกใหม่ก่อนครับ');
         setLoading(false);
         return;
       }
@@ -541,20 +533,12 @@ export default function AuthPage() {
           setCurrentUser(data.session.user);
           const userMeta = data.session.user.user_metadata;
           const resolvedName = userMeta?.display_name || cleanName;
-          const resolvedAvatar = userMeta?.avatar_url || selectedQuickProfile?.avatarUrl || null;
-
-          saveTrainerProfileToList({
-            name: resolvedName,
-            email: targetEmail,
-            avatarUrl: resolvedAvatar,
-            bio: userMeta?.bio || 'เทรนเนอร์นักสะสมแห่งสถาบันเทรเซน',
-          });
-          setSavedProfiles(getSavedProfiles());
-
+          const resolvedAvatar = userMeta?.avatar_url || selectedProfile?.avatar || null;
           if (resolvedAvatar) {
             localStorage.setItem('tracen_cached_avatar', resolvedAvatar);
           }
           localStorage.setItem('tracen_cached_name', resolvedName);
+          saveProfileToDirectory(resolvedName, targetEmail, resolvedAvatar);
         }
 
         setSuccessMsg('เข้าสู่ระบบสำเร็จ! กำลังพากลับหน้าแรก...');
@@ -576,14 +560,10 @@ export default function AuthPage() {
     localStorage.removeItem('tracen_cached_avatar');
     localStorage.removeItem('tracen_cached_name');
     setCurrentUser(null);
-    setSelectedQuickProfile(null);
-    setPassword('');
+    setSelectedProfile(null);
+    loadSavedProfiles();
     setLoading(false);
-
-    const profiles = getSavedProfiles();
-    setSavedProfiles(profiles);
-    setViewMode(profiles.length > 0 ? 'picker' : 'login');
-    setSuccessMsg('ออกจากระบบเรียบร้อยแล้ว เลือกโปรไฟล์เพื่อเข้าใช้งานต่อได้เลยครับ');
+    setSuccessMsg('ออกจากระบบเรียบร้อยแล้วครับ');
   };
 
   const displayTitle =
@@ -597,7 +577,7 @@ export default function AuthPage() {
     <div
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #022c22 0%, #064e3b 45%, #0f172a 100%)',
+        background: 'linear-gradient(135deg, #061814 0%, #06372b 50%, #0b1324 100%)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -658,7 +638,6 @@ export default function AuthPage() {
         </div>
       )}
 
-      {/* Pop-up ตัดกรอบรูปวงกลม */}
       {isCropModalOpen && rawImageToCrop && (
         <div
           style={{
@@ -866,22 +845,6 @@ export default function AuthPage() {
         </div>
       )}
 
-      <style jsx>{`
-        .profile-tile {
-          transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-            background-color 0.2s ease,
-            border-color 0.2s ease,
-            box-shadow 0.2s ease;
-        }
-        .profile-tile:hover {
-          transform: translateY(-6px) scale(1.03);
-          background-color: rgba(255, 255, 255, 0.14) !important;
-          border-color: rgba(52, 211, 153, 0.7) !important;
-          box-shadow: 0 18px 30px -10px rgba(0, 0, 0, 0.45);
-        }
-      `}</style>
-
-      {/* แถบเมนูด้านบน */}
       <header
         style={{
           borderBottom: '1px solid rgba(255,255,255,0.1)',
@@ -891,7 +854,7 @@ export default function AuthPage() {
       >
         <div
           style={{
-            maxWidth: '820px',
+            maxWidth: '860px',
             margin: '0 auto',
             padding: '0 16px',
             height: '56px',
@@ -951,273 +914,200 @@ export default function AuthPage() {
         }}
       >
         {checkingSession ? (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '10px',
-              color: '#d1fae5',
-              fontSize: '13px',
-            }}
-          >
-            <Loader2 className="animate-spin" style={{ width: '28px', height: '28px' }} />
-            <span>กำลังตรวจสอบบัญชีเทรนเนอร์...</span>
+          <div style={{ color: '#a7f3d0', fontSize: '13px', textAlign: 'center' }}>
+            <Loader2 className="animate-spin" style={{ width: '28px', height: '28px', margin: '0 auto 8px' }} />
+            <span>กำลังตรวจสอบบัญชี...</span>
           </div>
         ) : currentUser ? (
-          /* กรณีล็อกอินค้างอยู่ */
+          /* หากยังล็อกอินค้างอยู่ ให้กดกลับหน้าร้านหรือกดออกจากระบบเพื่อสลับผู้ใช้งาน */
           <div
             style={{
               width: '100%',
               maxWidth: '400px',
               background: '#ffffff',
               borderRadius: '28px',
+              padding: '24px',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
-                padding: '18px 24px',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '11px',
-                    background: '#fbbf24',
-                    color: '#0f172a',
-                    fontWeight: 900,
-                    fontSize: '17px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  U
-                </div>
-                <div>
-                  <p style={{ fontSize: '14px', fontWeight: 800, margin: 0 }}>
-                    Tracen Collectibles
-                  </p>
-                  <p style={{ fontSize: '11px', color: '#d1fae5', margin: '2px 0 0 0' }}>
-                    เข้าสู่ระบบอยู่ขณะนี้
-                  </p>
-                </div>
-              </div>
-              <Shield style={{ width: '20px', height: '20px', color: '#fde68a' }} />
-            </div>
-
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div
-                  style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '9999px',
-                    overflow: 'hidden',
-                    background: '#059669',
-                    color: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '24px',
-                    fontWeight: 800,
-                    flexShrink: 0,
-                  }}
-                >
-                  {currentAvatarUrl ? (
-                    <img
-                      src={currentAvatarUrl}
-                      alt={displayTitle}
-                      style={{ width: '64px', height: '64px', objectFit: 'cover', display: 'block' }}
-                    />
-                  ) : (
-                    displayTitle.charAt(0).toUpperCase()
-                  )}
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      background: '#ecfdf5',
-                      border: '1px solid #a7f3d0',
-                      color: '#047857',
-                      borderRadius: '9999px',
-                      padding: '2px 10px',
-                      fontSize: '10px',
-                      fontWeight: 700,
-                    }}
-                  >
-                    ONLINE TRAINER
-                  </span>
-                  <h1
-                    style={{
-                      fontSize: '18px',
-                      fontWeight: 800,
-                      color: '#0f172a',
-                      margin: '4px 0 0 0',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {displayTitle}
-                  </h1>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  triggerGifLoader('กำลังกลับหน้าร้าน...', 600, () => {
-                    router.push('/');
-                  })
-                }
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '16px',
-                  border: 'none',
-                  background: '#059669',
-                  color: '#ffffff',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                ไปเลือกช้อปของสะสมต่อ
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSignOut}
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '16px',
-                  border: '1px solid #fecdd3',
-                  background: '#fff1f2',
-                  color: '#be123c',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  cursor: 'pointer',
-                }}
-              >
-                <LogOut style={{ width: '15px', height: '15px' }} />
-                <span>ออกจากระบบ / สลับผู้ใช้งาน</span>
-              </button>
-            </div>
-          </div>
-        ) : viewMode === 'picker' && savedProfiles.length > 0 ? (
-          /* หน้าเลือกผู้ใช้งานสไตล์ Brave Profile Picker (แสดงหลังออกจากระบบหรือเมื่อมีบัญชีในเครื่อง) */
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '720px',
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              textAlign: 'center',
-              gap: '24px',
+              gap: '16px',
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div
                 style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: '16px',
-                  background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-                  color: '#0f172a',
-                  fontWeight: 900,
-                  fontSize: '24px',
+                  width: '62px',
+                  height: '62px',
+                  borderRadius: '9999px',
+                  overflow: 'hidden',
+                  background: '#059669',
+                  color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 10px 25px rgba(245, 158, 11, 0.35)',
+                  fontSize: '22px',
+                  fontWeight: 800,
+                  flexShrink: 0,
                 }}
               >
-                U
+                {currentAvatarUrl ? (
+                  <img
+                    src={currentAvatarUrl}
+                    alt={displayTitle}
+                    style={{ width: '62px', height: '62px', objectFit: 'cover', display: 'block' }}
+                  />
+                ) : (
+                  displayTitle.charAt(0).toUpperCase()
+                )}
               </div>
-              <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#ffffff', margin: 0 }}>
-                เลือกผู้ใช้งาน Tracen Collectibles
-              </h1>
-              <p style={{ fontSize: '13px', color: '#a7f3d0', margin: 0, maxWidth: '460px' }}>
-                แตะที่โปรไฟล์เทรนเนอร์ที่สมัครไว้เพื่อเข้าสู่ระบบทันที หรือกดเพิ่มบัญชีใหม่
-              </p>
+              <div style={{ minWidth: 0 }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    background: '#ecfdf5',
+                    border: '1px solid #a7f3d0',
+                    color: '#047857',
+                    borderRadius: '9999px',
+                    padding: '2px 10px',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                  }}
+                >
+                  กำลังใช้งานบัญชีนี้
+                </span>
+                <h1
+                  style={{
+                    fontSize: '18px',
+                    fontWeight: 800,
+                    color: '#0f172a',
+                    margin: '4px 0 0 0',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {displayTitle}
+                </h1>
+              </div>
             </div>
 
-            {successMsg && (
-              <div
-                style={{
-                  background: 'rgba(16, 185, 129, 0.2)',
-                  border: '1px solid rgba(52, 211, 153, 0.4)',
-                  borderRadius: '14px',
-                  padding: '10px 16px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#d1fae5',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <CheckCircle2 style={{ width: '16px', height: '16px', color: '#34d399' }} />
-                <span>{successMsg}</span>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() =>
+                triggerGifLoader('กำลังกลับหน้าร้าน...', 600, () => {
+                  router.push('/');
+                })
+              }
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '16px',
+                border: 'none',
+                background: '#059669',
+                color: '#ffffff',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              ไปเลือกช้อปของสะสมต่อ
+            </button>
 
-            {/* ตารางการ์ดผู้ใช้งาน + ปุ่ม Add สไตล์ Brave */}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: '16px',
+                border: '1px solid #fecdd3',
+                background: '#fff1f2',
+                color: '#be123c',
+                fontSize: '12px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+              }}
+            >
+              <LogOut style={{ width: '15px', height: '15px' }} />
+              <span>ออกจากระบบ / สลับผู้ใช้งาน</span>
+            </button>
+          </div>
+        ) : !showAuthForm && savedProfiles.length > 0 ? (
+          /* หน้าเลือกผู้ใช้งานสไตล์ Brave Profile Picker (เรียงการ์ดโปรไฟล์ + การ์ดเพิ่มบัญชีเส้นปะ) */
+          <div style={{ width: '100%', maxWidth: '820px', textAlign: 'center', color: '#ffffff' }}>
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                color: '#0f172a',
+                fontWeight: 900,
+                fontSize: '22px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 14px auto',
+                boxShadow: '0 10px 25px rgba(245, 158, 11, 0.35)',
+              }}
+            >
+              U
+            </div>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0' }}>
+              เลือกบัญชีเทรนเนอร์ที่ต้องการใช้งาน
+            </h1>
+            <p style={{ fontSize: '13px', color: '#a7f3d0', margin: '0 0 28px 0' }}>
+              แตะที่การ์ดผู้ใช้งานเพื่อเข้าสู่ระบบทันที หรือกดเพิ่มบัญชีสมาชิกใหม่
+            </p>
+
             <div
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
                 justifyContent: 'center',
                 gap: '16px',
-                width: '100%',
               }}
             >
               {savedProfiles.map((profile) => (
                 <div
                   key={profile.email}
                   onClick={() => handleSelectProfileCard(profile)}
-                  className="profile-tile"
                   style={{
-                    position: 'relative',
-                    width: '158px',
-                    height: '188px',
-                    borderRadius: '20px',
+                    width: '165px',
+                    height: '205px',
+                    borderRadius: '18px',
                     background: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.16)',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
                     backdropFilter: 'blur(10px)',
-                    padding: '18px 14px',
+                    padding: '16px 12px',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '14px',
+                    justifyContent: 'space-between',
                     cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'transform 0.2s ease, background 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.14)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
                   }}
                 >
-                  {/* ปุ่ม 3 จุดมุมขวาบนสำหรับลบบัญชีออกจากรายการเลือกด่วน */}
+                  {/* ปุ่มจุด 3 จุดมุมขวาบนสำหรับลบบัญชีออกจากเครื่อง */}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setMenuOpenEmail((prev) =>
+                      setOpenMenuEmail((prev) =>
                         prev === profile.email ? null : profile.email
                       );
                     }}
@@ -1225,98 +1115,92 @@ export default function AuthPage() {
                       position: 'absolute',
                       top: '10px',
                       right: '8px',
-                      width: '26px',
-                      height: '26px',
-                      borderRadius: '9999px',
                       border: 'none',
                       background: 'transparent',
                       color: 'rgba(255,255,255,0.65)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
                       cursor: 'pointer',
+                      padding: '4px',
                     }}
-                    title="ตัวเลือกโปรไฟล์"
+                    title="ตัวเลือกบัญชี"
                   >
                     <MoreVertical style={{ width: '15px', height: '15px' }} />
                   </button>
 
-                  {menuOpenEmail === profile.email && (
+                  {openMenuEmail === profile.email && (
                     <div
                       onClick={(e) => e.stopPropagation()}
                       style={{
                         position: 'absolute',
-                        top: '38px',
+                        top: '34px',
                         right: '10px',
-                        zIndex: 20,
                         background: '#ffffff',
                         borderRadius: '12px',
                         boxShadow: '0 10px 25px rgba(0,0,0,0.35)',
                         padding: '4px',
-                        minWidth: '120px',
+                        zIndex: 20,
                       }}
                     >
                       <button
                         type="button"
                         onClick={(e) => handleDeleteSavedProfile(profile.email, e)}
                         style={{
-                          width: '100%',
                           border: 'none',
                           background: 'transparent',
                           color: '#e11d48',
                           fontSize: '11px',
                           fontWeight: 700,
-                          padding: '7px 10px',
-                          borderRadius: '8px',
+                          padding: '6px 10px',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '6px',
+                          gap: '5px',
                           cursor: 'pointer',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         <Trash2 style={{ width: '13px', height: '13px' }} />
-                        <span>นำออก</span>
+                        <span>ลบออกจากรายการ</span>
                       </button>
                     </div>
                   )}
 
-                  {/* ชื่อผู้ใช้งานด้านบนรูป (สไตล์เดียวกับ Brave Profile Card) */}
+                  {/* ชื่อผู้ใช้งานด้านบนการ์ด */}
                   <p
                     style={{
                       fontSize: '13px',
                       fontWeight: 700,
                       color: '#ffffff',
-                      margin: 0,
+                      margin: '6px 0 0 0',
                       width: '100%',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
+                      padding: '0 14px',
                     }}
                   >
                     {profile.name}
                   </p>
 
-                  {/* รูปโปรไฟล์วงกลมตรงกลาง */}
+                  {/* รูปโปรไฟล์วงกลมตรงกลางการ์ด */}
                   <div
                     style={{
                       width: '86px',
                       height: '86px',
                       borderRadius: '9999px',
                       overflow: 'hidden',
-                      border: '3px solid #34d399',
                       background: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
-                      color: '#ffffff',
+                      border: '3px solid rgba(255,255,255,0.35)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: '30px',
                       fontWeight: 800,
+                      color: '#ffffff',
                       boxShadow: '0 8px 20px rgba(0,0,0,0.3)',
                     }}
                   >
-                    {profile.avatarUrl ? (
+                    {profile.avatar ? (
                       <img
-                        src={profile.avatarUrl}
+                        src={profile.avatar}
                         alt={profile.name}
                         style={{
                           width: '86px',
@@ -1329,87 +1213,66 @@ export default function AuthPage() {
                       profile.name.charAt(0).toUpperCase()
                     )}
                   </div>
+
+                  <span style={{ fontSize: '10px', color: '#6ee7b7', fontWeight: 600 }}>
+                    แตะเพื่อเข้าสู่ระบบ
+                  </span>
                 </div>
               ))}
 
-              {/* การ์ด Add (+) สำหรับสมัครสมาชิกใหม่ (เส้นปะสไตล์ Brave) */}
+              {/* การ์ดเส้นปะ "+ เพิ่มบัญชี" สไตล์ Brave */}
               <div
-                onClick={() => {
-                  setSelectedQuickProfile(null);
-                  setTrainerName('');
-                  setEmail('');
-                  setPassword('');
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                  setViewMode('register');
-                }}
-                className="profile-tile"
+                onClick={handleClickAddProfile}
                 style={{
-                  width: '158px',
-                  height: '188px',
-                  borderRadius: '20px',
-                  background: 'rgba(255, 255, 255, 0.04)',
-                  border: '2px dashed rgba(255, 255, 255, 0.28)',
-                  padding: '18px 14px',
+                  width: '165px',
+                  height: '205px',
+                  borderRadius: '18px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1.5px dashed rgba(255, 255, 255, 0.28)',
+                  padding: '16px 12px',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '14px',
+                  justifyContent: 'space-between',
                   cursor: 'pointer',
+                  transition: 'transform 0.2s ease, border-color 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.borderColor = '#34d399';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.28)';
                 }}
               >
-                <p
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    color: '#e2e8f0',
-                    margin: 0,
-                  }}
-                >
-                  สมัครเพิ่ม
+                <p style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0', margin: '6px 0 0 0' }}>
+                  สมัคร / เพิ่มบัญชี
                 </p>
+
                 <div
                   style={{
                     width: '86px',
                     height: '86px',
                     borderRadius: '9999px',
                     background: 'rgba(255, 255, 255, 0.14)',
-                    color: '#ffffff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    color: '#ffffff',
                   }}
                 >
                   <Plus style={{ width: '32px', height: '32px' }} />
                 </div>
+
+                <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>
+                  สร้างบัญชีใหม่
+                </span>
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedQuickProfile(null);
-                setTrainerName('');
-                setPassword('');
-                setErrorMsg(null);
-                setViewMode('login');
-              }}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                color: '#a7f3d0',
-                fontSize: '12px',
-                fontWeight: 600,
-                textDecoration: 'underline',
-                cursor: 'pointer',
-              }}
-            >
-              เข้าสู่ระบบด้วยชื่ออื่น
-            </button>
           </div>
         ) : (
-          /* ฟอร์มเข้าสู่ระบบ / สมัครสมาชิกใหม่ */
+          /* ฟอร์มเข้าสู่ระบบ (ใช้ชื่อเทรนเนอร์+รหัสผ่าน) หรือ สมัครสมาชิกใหม่ */
           <div
             style={{
               width: '100%',
@@ -1461,26 +1324,22 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedQuickProfile(null);
+                    setShowAuthForm(false);
+                    setSelectedProfile(null);
                     setErrorMsg(null);
-                    setViewMode('picker');
                   }}
                   style={{
-                    borderRadius: '9999px',
                     border: '1px solid rgba(255,255,255,0.35)',
-                    background: 'rgba(255,255,255,0.16)',
+                    background: 'rgba(255,255,255,0.15)',
                     color: '#ffffff',
-                    padding: '5px 10px',
-                    fontSize: '11px',
+                    borderRadius: '9999px',
+                    padding: '4px 10px',
+                    fontSize: '10px',
                     fontWeight: 700,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
                     cursor: 'pointer',
                   }}
                 >
-                  <Users style={{ width: '13px', height: '13px' }} />
-                  <span>สลับผู้ใช้</span>
+                  เลือกโปรไฟล์อื่น
                 </button>
               ) : (
                 <Shield style={{ width: '20px', height: '20px', color: '#fde68a' }} />
@@ -1502,7 +1361,7 @@ export default function AuthPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setViewMode('login');
+                      setMode('login');
                       setErrorMsg(null);
                       setSuccessMsg(null);
                     }}
@@ -1513,9 +1372,9 @@ export default function AuthPage() {
                       fontSize: '12px',
                       fontWeight: 700,
                       cursor: 'pointer',
-                      background: viewMode === 'login' ? '#ffffff' : 'transparent',
-                      color: viewMode === 'login' ? '#047857' : '#64748b',
-                      boxShadow: viewMode === 'login' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                      background: mode === 'login' ? '#ffffff' : 'transparent',
+                      color: mode === 'login' ? '#047857' : '#64748b',
+                      boxShadow: mode === 'login' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                     }}
                   >
                     เข้าสู่ระบบ
@@ -1523,8 +1382,8 @@ export default function AuthPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedQuickProfile(null);
-                      setViewMode('register');
+                      setMode('register');
+                      setSelectedProfile(null);
                       setErrorMsg(null);
                       setSuccessMsg(null);
                     }}
@@ -1535,30 +1394,30 @@ export default function AuthPage() {
                       fontSize: '12px',
                       fontWeight: 700,
                       cursor: 'pointer',
-                      background: viewMode === 'register' ? '#ffffff' : 'transparent',
-                      color: viewMode === 'register' ? '#047857' : '#64748b',
-                      boxShadow: viewMode === 'register' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                      background: mode === 'register' ? '#ffffff' : 'transparent',
+                      color: mode === 'register' ? '#047857' : '#64748b',
+                      boxShadow: mode === 'register' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                     }}
                   >
                     สมัครสมาชิกใหม่
                   </button>
                 </div>
 
-                {/* แสดงรูปและชื่อโปรไฟล์ที่คลิกเลือกมาจากการ์ด */}
-                {viewMode === 'login' && selectedQuickProfile && (
+                {/* โชว์รูปโปรไฟล์วงกลมของบัญชีที่เลือกตอนกดเข้าสู่ระบบ */}
+                {mode === 'login' && selectedProfile && (
                   <div
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       gap: '6px',
-                      padding: '4px 0',
+                      paddingTop: '2px',
                     }}
                   >
                     <div
                       style={{
-                        width: '72px',
-                        height: '72px',
+                        width: '74px',
+                        height: '74px',
                         borderRadius: '9999px',
                         overflow: 'hidden',
                         border: '3px solid #10b981',
@@ -1567,28 +1426,28 @@ export default function AuthPage() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '24px',
+                        fontSize: '26px',
                         fontWeight: 800,
                       }}
                     >
-                      {selectedQuickProfile.avatarUrl ? (
+                      {selectedProfile.avatar ? (
                         <img
-                          src={selectedQuickProfile.avatarUrl}
-                          alt={selectedQuickProfile.name}
+                          src={selectedProfile.avatar}
+                          alt={selectedProfile.name}
                           style={{
-                            width: '72px',
-                            height: '72px',
+                            width: '74px',
+                            height: '74px',
                             objectFit: 'cover',
                             display: 'block',
                           }}
                         />
                       ) : (
-                        selectedQuickProfile.name.charAt(0).toUpperCase()
+                        selectedProfile.name.charAt(0).toUpperCase()
                       )}
                     </div>
-                    <p style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                      {selectedQuickProfile.name}
-                    </p>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                      {selectedProfile.name}
+                    </span>
                   </div>
                 )}
 
@@ -1640,7 +1499,7 @@ export default function AuthPage() {
                   onSubmit={handleSubmit}
                   style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
                 >
-                  {viewMode === 'register' && (
+                  {mode === 'register' && (
                     <>
                       {croppedAvatarUrl ? (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
@@ -1814,7 +1673,6 @@ export default function AuthPage() {
                     </>
                   )}
 
-                  {/* ช่องชื่อเทรนเนอร์ (ใช้ทั้งเข้าสู่ระบบและสมัครสมาชิก) */}
                   <div>
                     <div
                       style={{
@@ -1827,7 +1685,7 @@ export default function AuthPage() {
                       <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>
                         ชื่อเทรนเนอร์
                       </label>
-                      {viewMode === 'register' && (
+                      {mode === 'register' && (
                         <button
                           type="button"
                           onClick={handleRandomName}
@@ -1863,7 +1721,7 @@ export default function AuthPage() {
                       <input
                         type="text"
                         required
-                        placeholder="เช่น Tazuna Hayakawa"
+                        placeholder="เช่น TazunaHayakawa หรือ สเปเชียล เท็น"
                         value={trainerName}
                         onChange={(e) => setTrainerName(e.target.value)}
                         style={{
@@ -1881,8 +1739,7 @@ export default function AuthPage() {
                     </div>
                   </div>
 
-                  {/* ช่องอีเมล (แสดงเฉพาะตอนสมัครสมาชิกใหม่) */}
-                  {viewMode === 'register' && (
+                  {mode === 'register' && (
                     <div>
                       <label
                         style={{
@@ -1928,7 +1785,6 @@ export default function AuthPage() {
                     </div>
                   )}
 
-                  {/* ช่องรหัสผ่าน */}
                   <div>
                     <label
                       style={{
@@ -2024,7 +1880,7 @@ export default function AuthPage() {
                         <span>กำลังดำเนินการ...</span>
                       </>
                     ) : (
-                      <span>{viewMode === 'login' ? 'เข้าสู่ระบบ' : 'สร้างบัญชีสมาชิก'}</span>
+                      <span>{mode === 'login' ? 'เข้าสู่ระบบ' : 'สร้างบัญชีสมาชิก'}</span>
                     )}
                   </button>
                 </form>
@@ -2042,7 +1898,7 @@ export default function AuthPage() {
           color: 'rgba(167, 243, 208, 0.7)',
         }}
       >
-        Tracen Collectibles • ระบบโปรไฟล์เทรนเนอร์ข้ามอุปกรณ์
+        Tracen Collectibles • ระบบบัญชีสมาชิกข้ามอุปกรณ์ผ่าน Supabase
       </footer>
     </div>
   );
