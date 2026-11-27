@@ -28,7 +28,7 @@ import {
   Trash2,
 } from 'lucide-react';
 
-const UI_VERSION = 'v5.5';
+const UI_VERSION = 'v5.6';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 const SUPABASE_URL = 'https://jwujhkuudfqpitouiqnw.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_EJM1vWSsz9qNrjRg20lx8A_M-FxsBMq';
@@ -122,7 +122,6 @@ export default function AuthPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
 
-  // รายชื่อโปรไฟล์ผู้ใช้งานที่บันทึกไว้ (สไตล์ Brave Profile Picker)
   const [savedProfiles, setSavedProfiles] = useState<SavedTrainerProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<SavedTrainerProfile | null>(null);
   const [showAuthForm, setShowAuthForm] = useState(false);
@@ -167,7 +166,6 @@ export default function AuthPage() {
       const raw = localStorage.getItem('tracen_saved_profiles');
       const list: SavedTrainerProfile[] = raw ? JSON.parse(raw) : [];
       setSavedProfiles(list);
-      // ถ้ามีโปรไฟล์ที่เคยสมัครไว้ ให้แสดงหน้าเลือกผู้ใช้งานก่อน
       if (list.length > 0) {
         setShowAuthForm(false);
       } else {
@@ -583,13 +581,14 @@ export default function AuthPage() {
         justifyContent: 'space-between',
       }}
     >
+      {/* หน้าโหลดโทนมืดกระจกพรีเมียม */}
       {isLoadingScreen && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
             zIndex: 9999,
-            background: 'linear-gradient(135deg, #10b981 0%, #14b8a6 50%, #f59e0b 100%)',
+            background: 'radial-gradient(circle at 50% 35%, #064e3b 0%, #041813 55%, #070d17 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -598,41 +597,82 @@ export default function AuthPage() {
         >
           <div
             style={{
-              background: 'rgba(255,255,255,0.22)',
-              backdropFilter: 'blur(12px)',
-              borderRadius: '24px',
-              border: '1px solid rgba(255,255,255,0.45)',
-              padding: '20px',
-              width: '280px',
+              background: 'rgba(15, 23, 42, 0.72)',
+              backdropFilter: 'blur(16px)',
+              borderRadius: '28px',
+              border: '1px solid rgba(110, 231, 183, 0.22)',
+              padding: '24px 28px',
+              width: '250px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               gap: '14px',
               textAlign: 'center',
-              color: '#ffffff',
+              color: '#f8fafc',
+              boxShadow: '0 24px 60px -12px rgba(0, 0, 0, 0.65)',
             }}
           >
             <div
               style={{
-                width: '136px',
-                height: '136px',
-                borderRadius: '18px',
+                width: '108px',
+                height: '108px',
+                borderRadius: '9999px',
                 overflow: 'hidden',
-                border: '2px solid #ffffff',
-                background: '#ffffff',
+                border: '2px solid rgba(52, 211, 153, 0.55)',
+                background: '#0f172a',
+                boxShadow: '0 0 24px rgba(16, 185, 129, 0.25)',
               }}
             >
               <img
                 src={LOADING_GIFS[loadingGifIdx]}
                 alt="loading"
-                style={{ width: '136px', height: '136px', objectFit: 'cover', display: 'block' }}
+                style={{ width: '108px', height: '108px', objectFit: 'cover', display: 'block' }}
               />
             </div>
-            <div>
-              <p style={{ fontSize: '14px', fontWeight: 800, margin: 0 }}>{loadingText}</p>
-              <p style={{ fontSize: '11px', opacity: 0.9, marginTop: '4px' }}>
-                Tracen Collectibles {UI_VERSION}
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+              <p
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  margin: 0,
+                  color: '#ecfdf5',
+                }}
+              >
+                {loadingText}
               </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '2px' }}>
+                <span
+                  className="animate-bounce"
+                  style={{
+                    width: '5px',
+                    height: '5px',
+                    borderRadius: '9999px',
+                    background: '#34d399',
+                    animationDelay: '0ms',
+                  }}
+                />
+                <span
+                  className="animate-bounce"
+                  style={{
+                    width: '5px',
+                    height: '5px',
+                    borderRadius: '9999px',
+                    background: '#34d399',
+                    animationDelay: '150ms',
+                  }}
+                />
+                <span
+                  className="animate-bounce"
+                  style={{
+                    width: '5px',
+                    height: '5px',
+                    borderRadius: '9999px',
+                    background: '#34d399',
+                    animationDelay: '300ms',
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -919,7 +959,6 @@ export default function AuthPage() {
             <span>กำลังตรวจสอบบัญชี...</span>
           </div>
         ) : currentUser ? (
-          /* หากยังล็อกอินค้างอยู่ ให้กดกลับหน้าร้านหรือกดออกจากระบบเพื่อสลับผู้ใช้งาน */
           <div
             style={{
               width: '100%',
@@ -1038,7 +1077,6 @@ export default function AuthPage() {
             </button>
           </div>
         ) : !showAuthForm && savedProfiles.length > 0 ? (
-          /* หน้าเลือกผู้ใช้งานสไตล์ Brave Profile Picker (เรียงการ์ดโปรไฟล์ + การ์ดเพิ่มบัญชีเส้นปะ) */
           <div style={{ width: '100%', maxWidth: '820px', textAlign: 'center', color: '#ffffff' }}>
             <div
               style={{
@@ -1102,7 +1140,6 @@ export default function AuthPage() {
                     e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
                   }}
                 >
-                  {/* ปุ่มจุด 3 จุดมุมขวาบนสำหรับลบบัญชีออกจากเครื่อง */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1163,7 +1200,6 @@ export default function AuthPage() {
                     </div>
                   )}
 
-                  {/* ชื่อผู้ใช้งานด้านบนการ์ด */}
                   <p
                     style={{
                       fontSize: '13px',
@@ -1180,7 +1216,6 @@ export default function AuthPage() {
                     {profile.name}
                   </p>
 
-                  {/* รูปโปรไฟล์วงกลมตรงกลางการ์ด */}
                   <div
                     style={{
                       width: '86px',
@@ -1220,7 +1255,6 @@ export default function AuthPage() {
                 </div>
               ))}
 
-              {/* การ์ดเส้นปะ "+ เพิ่มบัญชี" สไตล์ Brave */}
               <div
                 onClick={handleClickAddProfile}
                 style={{
@@ -1272,7 +1306,6 @@ export default function AuthPage() {
             </div>
           </div>
         ) : (
-          /* ฟอร์มเข้าสู่ระบบ (ใช้ชื่อเทรนเนอร์+รหัสผ่าน) หรือ สมัครสมาชิกใหม่ */
           <div
             style={{
               width: '100%',
@@ -1403,7 +1436,6 @@ export default function AuthPage() {
                   </button>
                 </div>
 
-                {/* โชว์รูปโปรไฟล์วงกลมของบัญชีที่เลือกตอนกดเข้าสู่ระบบ */}
                 {mode === 'login' && selectedProfile && (
                   <div
                     style={{
