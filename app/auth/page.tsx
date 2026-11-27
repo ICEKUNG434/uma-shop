@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient, User } from '@supabase/supabase-js';
 import {
+  Mail,
   Lock,
   User as UserIcon,
   ArrowLeft,
@@ -24,7 +25,7 @@ import {
   Shield,
 } from 'lucide-react';
 
-const UI_VERSION = 'v5.2';
+const UI_VERSION = 'v5.3';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 const SUPABASE_URL = 'https://jwujhkuudfqpitouiqnw.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_EJM1vWSsz9qNrjRg20lx8A_M-FxsBMq';
@@ -42,15 +43,6 @@ const SAMPLE_TRAINER_NAMES = [
   'OguriCap',
   'เทรนเนอร์ซากุระ',
 ];
-
-function usernameToInternalEmail(rawName: string): string {
-  const clean = rawName.trim().toLowerCase().replace(/\s+/g, '_');
-  const encoded = Array.from(clean)
-    .map((ch) => (/[a-z0-9._-]/.test(ch) ? ch : `u${ch.charCodeAt(0).toString(16)}`))
-    .join('');
-  const safeId = (encoded || 'trainer').slice(0, 48);
-  return `${safeId}@tracen.local`;
-}
 
 function isGifFile(file: File): boolean {
   return file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
@@ -124,12 +116,15 @@ export default function AuthPage() {
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [trainerName, setTrainerName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  // รูปโปรไฟล์ที่ตัดกรอบวงกลมเสร็จแล้ว
   const [croppedAvatarUrl, setCroppedAvatarUrl] = useState<string | null>(null);
   const [croppedAvatarBase64, setCroppedAvatarBase64] = useState<string | null>(null);
 
+  // Pop-up ตัดกรอบรูปวงกลม
   const [rawImageToCrop, setRawImageToCrop] = useState<string | null>(null);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -336,24 +331,29 @@ export default function AuthPage() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const cleanName = trainerName.trim();
-    if (!cleanName) {
-      setErrorMsg('กรุณากรอกชื่อเทรนเนอร์ครับ');
-      return;
-    }
+    if (mode === 'register') {
+      const cleanName = trainerName.trim();
+      const cleanEmail = email.trim();
 
-    setLoading(true);
-    const internalEmail = usernameToInternalEmail(cleanName);
+      if (!cleanName) {
+        setErrorMsg('กรุณากรอกชื่อเทรนเนอร์ครับ');
+        return;
+      }
+      if (!cleanEmail) {
+        setErrorMsg('กรุณากรอกอีเมลครับ');
+        return;
+      }
 
-    try {
-      if (mode === 'register') {
+      setLoading(true);
+
+      try {
         let uploadedAvatarUrl: string | null = null;
         if (croppedAvatarBase64) {
           uploadedAvatarUrl = await uploadAvatarToImgBB();
         }
 
         const { data, error } = await supabase.auth.signUp({
-          email: internalEmail,
+          email: cleanEmail,
           password,
           options: {
             data: {
@@ -366,9 +366,9 @@ export default function AuthPage() {
 
         if (error) {
           if (error.message.toLowerCase().includes('already registered')) {
-            setErrorMsg('ชื่อเทรนเนอร์นี้มีคนใช้แล้ว กรุณาตั้งชื่ออื่นครับ');
+            setErrorMsg('อีเมลนี้ถูกใช้สมัครสมาชิกแล้วครับ');
           } else {
-            setErrorMsg(error.message || 'ไม่สามารถสร้างบัญชีได้ กรุณาลองใหม่อีกครั้งครับ');
+            setErrorMsg(error.message || 'ไม่สามารถสร้างบัญชีได้ กรุณาตรวจสอบข้อมูลอีกครั้งครับ');
           }
           setLoading(false);
           return;
@@ -386,14 +386,28 @@ export default function AuthPage() {
         triggerGifLoader('สมัครสมาชิกสำเร็จ! กำลังเข้าสู่หน้าแรก...', 750, () => {
           router.push('/');
         });
-      } else {
+      } catch {
+        setErrorMsg('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้งครับ');
+        setLoading(false);
+      }
+    } else {
+      // โหมดเข้าสู่ระบบ: กรอกได้ทั้งอีเมลหรือชื่อเทรนเนอร์
+      const cleanLoginInput = email.trim();
+      if (!cleanLoginInput) {
+        setErrorMsg('กรุณากรอกอีเมลครับ');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: internalEmail,
+          email: cleanLoginInput,
           password,
         });
 
         if (error) {
-          setErrorMsg('ชื่อเทรนเนอร์หรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้งครับ');
+          setErrorMsg('อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้งครับ');
           setLoading(false);
           return;
         }
@@ -408,10 +422,10 @@ export default function AuthPage() {
         triggerGifLoader('กำลังเข้าสู่หน้าแรก...', 700, () => {
           router.push('/');
         });
+      } catch {
+        setErrorMsg('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้งครับ');
+        setLoading(false);
       }
-    } catch {
-      setErrorMsg('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้งครับ');
-      setLoading(false);
     }
   };
 
@@ -900,6 +914,18 @@ export default function AuthPage() {
                     >
                       {displayTitle}
                     </h1>
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        color: '#64748b',
+                        margin: '2px 0 0 0',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {currentUser.email}
+                    </p>
                   </div>
                 </div>
 
@@ -1073,6 +1099,7 @@ export default function AuthPage() {
                   onSubmit={handleSubmit}
                   style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
                 >
+                  {/* ส่วนใส่รูปโปรไฟล์เฉพาะตอนสมัครสมาชิก */}
                   {mode === 'register' && (
                     <>
                       {croppedAvatarUrl ? (
@@ -1247,19 +1274,20 @@ export default function AuthPage() {
                     </>
                   )}
 
-                  <div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '5px',
-                      }}
-                    >
-                      <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>
-                        ชื่อเทรนเนอร์
-                      </label>
-                      {mode === 'register' && (
+                  {/* ช่องชื่อเทรนเนอร์ (แสดงเฉพาะตอนสมัครสมาชิก) */}
+                  {mode === 'register' && (
+                    <div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: '5px',
+                        }}
+                      >
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>
+                          ชื่อเทรนเนอร์
+                        </label>
                         <button
                           type="button"
                           onClick={handleRandomName}
@@ -1279,10 +1307,55 @@ export default function AuthPage() {
                           <Wand2 style={{ width: '12px', height: '12px' }} />
                           <span>สุ่มชื่อเท่ๆ</span>
                         </button>
-                      )}
+                      </div>
+                      <div style={{ position: 'relative' }}>
+                        <UserIcon
+                          style={{
+                            position: 'absolute',
+                            left: '14px',
+                            top: '11px',
+                            width: '16px',
+                            height: '16px',
+                            color: '#94a3b8',
+                          }}
+                        />
+                        <input
+                          type="text"
+                          required
+                          placeholder="เช่น TazunaHayakawa หรือ สเปเชียล เท็น"
+                          value={trainerName}
+                          onChange={(e) => setTrainerName(e.target.value)}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            borderRadius: '14px',
+                            border: '1px solid #cbd5e1',
+                            background: '#f8fafc',
+                            padding: '9px 14px 9px 38px',
+                            fontSize: '13px',
+                            color: '#0f172a',
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
                     </div>
+                  )}
+
+                  {/* ช่องอีเมล (แสดงทั้งตอนเข้าสู่ระบบและสมัครสมาชิก) */}
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#475569',
+                        marginBottom: '5px',
+                      }}
+                    >
+                      อีเมล
+                    </label>
                     <div style={{ position: 'relative' }}>
-                      <UserIcon
+                      <Mail
                         style={{
                           position: 'absolute',
                           left: '14px',
@@ -1293,11 +1366,11 @@ export default function AuthPage() {
                         }}
                       />
                       <input
-                        type="text"
+                        type="email"
                         required
-                        placeholder="เช่น TazunaHayakawa หรือ สเปเชียล เท็น"
-                        value={trainerName}
-                        onChange={(e) => setTrainerName(e.target.value)}
+                        placeholder="trainer.tracen@gmail.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         style={{
                           width: '100%',
                           boxSizing: 'border-box',
@@ -1313,6 +1386,7 @@ export default function AuthPage() {
                     </div>
                   </div>
 
+                  {/* ช่องรหัสผ่าน */}
                   <div>
                     <label
                       style={{
