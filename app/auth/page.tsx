@@ -6,26 +6,26 @@ import { createClient, User } from '@supabase/supabase-js';
 import {
   Mail,
   Lock,
-  UserCircle2,
+  User as UserIcon,
   ArrowLeft,
   Loader2,
   LogOut,
   CheckCircle2,
-  AlertTriangle,
+  AlertCircle,
   Eye,
   EyeOff,
-  ImagePlus,
-  ClipboardPaste,
+  Camera,
+  Clipboard,
   X,
   ZoomIn,
   RotateCcw,
   Crop,
   Check,
-  Sparkles,
-  ShieldCheck,
+  Wand2,
+  Shield,
 } from 'lucide-react';
 
-const AUTH_UI_VERSION = 'v4.0';
+const UI_VERSION = 'v5.0';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 const SUPABASE_URL = 'https://jwujhkuudfqpitouiqnw.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_EJM1vWSsz9qNrjRg20lx8A_M-FxsBMq';
@@ -36,6 +36,14 @@ const LOADING_GIFS = [
   'https://media1.tenor.com/m/Gn9gXQJfkVMAAAAC/awful-umamusume.gif',
 ];
 
+const SAMPLE_TRAINER_NAMES = [
+  'เทรนเนอร์ซากุระ',
+  'สเปเชียล เท็น',
+  'ทีมสปิก้า 01',
+  'เทรนเนอร์คาเฟ่',
+  'นักสะสมเทรเซน',
+];
+
 function isGifFile(file: File): boolean {
   return file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
 }
@@ -44,8 +52,7 @@ function readImageFile(file: File): Promise<{ rawDataUrl: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
-      const rawDataUrl = (event.target?.result as string) || '';
-      resolve({ rawDataUrl });
+      resolve({ rawDataUrl: (event.target?.result as string) || '' });
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
@@ -58,7 +65,7 @@ function cropImageToCircle(
   offsetX: number,
   offsetY: number,
   outputSize = 360,
-  cropBoxSize = 220
+  cropBoxSize = 210
 ): Promise<{ dataUrl: string; base64Clean: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -105,7 +112,7 @@ export default function AuthPage() {
 
   const [isLoadingScreen, setIsLoadingScreen] = useState(true);
   const [loadingGifIdx, setLoadingGifIdx] = useState(0);
-  const [loadingText, setLoadingText] = useState('กำลังเปิดบัตรเทรนเนอร์...');
+  const [loadingText, setLoadingText] = useState('กำลังเปิดระบบสมาชิก...');
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [displayName, setDisplayName] = useState('');
@@ -117,7 +124,7 @@ export default function AuthPage() {
   const [croppedAvatarUrl, setCroppedAvatarUrl] = useState<string | null>(null);
   const [croppedAvatarBase64, setCroppedAvatarBase64] = useState<string | null>(null);
 
-  // State สำหรับ Pop-up ตัดกรอบรูปวงกลม
+  // Pop-up ตัดกรอบรูปวงกลม
   const [rawImageToCrop, setRawImageToCrop] = useState<string | null>(null);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -143,7 +150,7 @@ export default function AuthPage() {
     setLoadingGifIdx(Math.floor(Math.random() * LOADING_GIFS.length));
     const timer = setTimeout(() => {
       setIsLoadingScreen(false);
-    }, 650);
+    }, 600);
     return () => clearTimeout(timer);
   }, []);
 
@@ -164,12 +171,12 @@ export default function AuthPage() {
 
   const openCropPopupWithFile = useCallback(async (file: File) => {
     if (isGifFile(file)) {
-      setErrorMsg('ไม่รองรับไฟล์ GIF ครับ กรุณาเลือกหรือวางเฉพาะไฟล์รูปภาพ (JPG, PNG, WEBP)');
+      setErrorMsg('ไม่รองรับไฟล์ GIF ครับ กรุณาเลือกเฉพาะไฟล์รูปภาพ (JPG, PNG, WEBP)');
       return;
     }
 
     if (!file.type.startsWith('image/')) {
-      setErrorMsg('กรุณาเลือกหรือวางเฉพาะไฟล์รูปภาพ (JPG, PNG, WEBP) เท่านั้นครับ');
+      setErrorMsg('กรุณาเลือกเฉพาะไฟล์รูปภาพ (JPG, PNG, WEBP) เท่านั้นครับ');
       return;
     }
 
@@ -218,7 +225,7 @@ export default function AuthPage() {
     return () => window.removeEventListener('paste', handlePaste);
   }, [mode, currentUser, openCropPopupWithFile]);
 
-  const handlePasteFromClipboardButton = async () => {
+  const handlePasteButton = async () => {
     try {
       const items = await navigator.clipboard.read();
       for (const item of items) {
@@ -256,7 +263,7 @@ export default function AuthPage() {
         offset.x,
         offset.y,
         360,
-        220
+        210
       );
       setCroppedAvatarUrl(dataUrl);
       setCroppedAvatarBase64(base64Clean);
@@ -282,8 +289,8 @@ export default function AuthPage() {
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging) return;
-    const nextX = Math.max(-110, Math.min(110, e.clientX - dragStart.x));
-    const nextY = Math.max(-110, Math.min(110, e.clientY - dragStart.y));
+    const nextX = Math.max(-105, Math.min(105, e.clientX - dragStart.x));
+    const nextY = Math.max(-105, Math.min(105, e.clientY - dragStart.y));
     setOffset({ x: nextX, y: nextY });
   };
 
@@ -291,9 +298,14 @@ export default function AuthPage() {
     setIsDragging(false);
   };
 
+  const handleRandomName = () => {
+    const random =
+      SAMPLE_TRAINER_NAMES[Math.floor(Math.random() * SAMPLE_TRAINER_NAMES.length)];
+    setDisplayName(random);
+  };
+
   const uploadAvatarToImgBB = async (): Promise<string | null> => {
     if (!croppedAvatarBase64) return null;
-
     try {
       const formData = new FormData();
       formData.append('key', IMGBB_API_KEY);
@@ -309,8 +321,7 @@ export default function AuthPage() {
         return data.data.url as string;
       }
       return null;
-    } catch (err) {
-      console.error('อัปโหลดรูปโปรไฟล์ไม่สำเร็จ:', err);
+    } catch {
       return null;
     }
   };
@@ -340,7 +351,7 @@ export default function AuthPage() {
         });
 
         if (error) {
-          setErrorMsg(error.message || 'ไม่สามารถสร้างบัญชีได้ กรุณาตรวจสอบอีเมลและรหัสผ่านครับ');
+          setErrorMsg(error.message || 'ไม่สามารถสร้างบัญชีได้ กรุณาตรวจสอบข้อมูลอีกครั้งครับ');
           setLoading(false);
           return;
         }
@@ -396,16 +407,6 @@ export default function AuthPage() {
     setSuccessMsg('ออกจากระบบเรียบร้อยแล้วครับ');
   };
 
-  // คำนวณระดับความปลอดภัยของรหัสผ่านสำหรับแถบลูกเล่น
-  const getPasswordStrength = (pw: string) => {
-    if (!pw) return { label: '', color: 'bg-slate-200', width: '0%' };
-    if (pw.length < 6) return { label: 'สั้นเกินไป (ต้อง 6+ ตัว)', color: 'bg-rose-500', width: '33%' };
-    if (pw.length < 10) return { label: 'ปานกลาง (ใช้งานได้)', color: 'bg-amber-400', width: '68%' };
-    return { label: 'ปลอดภัยสูง', color: 'bg-emerald-500', width: '100%' };
-  };
-
-  const pwStrength = getPasswordStrength(password);
-
   const displayTitle =
     currentUser?.user_metadata?.display_name ||
     currentUser?.email?.split('@')[0] ||
@@ -414,73 +415,189 @@ export default function AuthPage() {
   const currentAvatarUrl: string | null = currentUser?.user_metadata?.avatar_url || null;
 
   return (
-    <div className="min-h-screen bg-[#062E24] bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-950 text-slate-900 flex flex-col justify-between">
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #022c22 0%, #064e3b 45%, #0f172a 100%)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+      }}
+    >
       {/* หน้าโหลดสีสดใสพร้อมสลับ GIF */}
       {isLoadingScreen && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-500 via-teal-500 to-amber-400 p-6 text-white">
-          <div className="w-full max-w-xs rounded-3xl bg-white/20 backdrop-blur-md border border-white/40 p-5 shadow-2xl flex flex-col items-center gap-4 text-center">
-            <div className="loader-gif-box rounded-2xl bg-white shadow-lg border-2 border-white overflow-hidden shrink-0">
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'linear-gradient(135deg, #10b981 0%, #14b8a6 50%, #f59e0b 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+          }}
+        >
+          <div
+            style={{
+              background: 'rgba(255,255,255,0.22)',
+              backdropFilter: 'blur(12px)',
+              borderRadius: '24px',
+              border: '1px solid rgba(255,255,255,0.45)',
+              padding: '20px',
+              width: '280px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '14px',
+              textAlign: 'center',
+              color: '#ffffff',
+            }}
+          >
+            <div
+              style={{
+                width: '136px',
+                height: '136px',
+                borderRadius: '18px',
+                overflow: 'hidden',
+                border: '2px solid #ffffff',
+                background: '#ffffff',
+              }}
+            >
               <img
                 src={LOADING_GIFS[loadingGifIdx]}
-                alt="กำลังโหลด"
-                className="loader-gif-img"
+                alt="loading"
+                style={{ width: '136px', height: '136px', objectFit: 'cover', display: 'block' }}
               />
             </div>
-            <div className="space-y-1">
-              <p className="text-sm font-extrabold drop-shadow-xs">{loadingText}</p>
-              <p className="text-[11px] text-white/90 font-medium">
-                Tracen Collectibles • สลับภาพ GIF อัตโนมัติ
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: 800, margin: 0 }}>{loadingText}</p>
+              <p style={{ fontSize: '11px', opacity: 0.9, marginTop: '4px' }}>
+                Tracen Collectibles {UI_VERSION}
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Pop-up ตัดกรอบรูปโปรไฟล์วงกลม */}
+      {/* Pop-up ตัดกรอบรูปวงกลม */}
       {isCropModalOpen && rawImageToCrop && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Crop className="h-4 w-4 text-emerald-600" />
-                <h3 className="text-base font-extrabold text-slate-900">ตัดกรอบรูปโปรไฟล์</h3>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9998,
+            background: 'rgba(2, 6, 23, 0.82)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '360px',
+              background: '#ffffff',
+              borderRadius: '24px',
+              padding: '22px',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '16px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Crop style={{ width: '18px', height: '18px', color: '#059669' }} />
+                <span style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                  ตัดกรอบรูปโปรไฟล์
+                </span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCropModalOpen(false)}
-                className="h-8 w-8 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center"
+                style={{
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '9999px',
+                  border: 'none',
+                  background: '#f1f5f9',
+                  color: '#475569',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
               >
-                <X className="h-4 w-4" />
+                <X style={{ width: '16px', height: '16px' }} />
               </button>
             </div>
 
-            <div className="flex flex-col items-center gap-3">
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
               <div
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
-                style={{ touchAction: 'none' }}
-                className="crop-stage-box relative bg-slate-900 border-4 border-emerald-500 shadow-lg cursor-grab active:cursor-grabbing select-none"
-                title="ลากเพื่อเลื่อนตำแหน่งภาพ"
+                style={{
+                  width: '210px',
+                  height: '210px',
+                  borderRadius: '9999px',
+                  overflow: 'hidden',
+                  border: '4px solid #10b981',
+                  background: '#0f172a',
+                  position: 'relative',
+                  cursor: isDragging ? 'grabbing' : 'grab',
+                  touchAction: 'none',
+                  userSelect: 'none',
+                }}
               >
                 <img
                   src={rawImageToCrop}
-                  alt="ปรับตำแหน่งรูปโปรไฟล์"
+                  alt="crop-preview"
                   draggable={false}
-                  className="crop-stage-img"
                   style={{
+                    width: '210px',
+                    height: '210px',
+                    maxWidth: '210px',
+                    maxHeight: '210px',
+                    objectFit: 'cover',
+                    display: 'block',
                     transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
                     transformOrigin: 'center center',
                   }}
                 />
               </div>
-              <p className="text-[11px] text-slate-500">
-                ลากภาพในวงกลมเพื่อจัดตำแหน่ง และเลื่อนแถบด้านล่างเพื่อซูม
+              <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>
+                ลากภาพในวงกลมเพื่อเลื่อนตำแหน่ง และปรับแถบซูมด้านล่าง
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5 text-xs text-slate-600 bg-slate-50 rounded-2xl px-3.5 py-2.5 border border-slate-200/80">
-              <ZoomIn className="h-4 w-4 text-emerald-600 shrink-0" />
+            <div
+              style={{
+                marginTop: '14px',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '14px',
+                padding: '10px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
+              <ZoomIn style={{ width: '16px', height: '16px', color: '#059669', flexShrink: 0 }} />
               <input
                 type="range"
                 min={1}
@@ -488,10 +605,17 @@ export default function AuthPage() {
                 step={0.05}
                 value={zoom}
                 onChange={(e) => setZoom(parseFloat(e.target.value))}
-                className="flex-1 accent-emerald-600 cursor-pointer h-1.5"
-                aria-label="ซูมรูปโปรไฟล์"
+                style={{ flex: 1, accentColor: '#059669', cursor: 'pointer' }}
               />
-              <span className="font-mono font-bold text-slate-800 w-9 text-right">
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#334155',
+                  width: '34px',
+                  textAlign: 'right',
+                }}
+              >
                 {zoom.toFixed(1)}x
               </span>
               <button
@@ -500,27 +624,63 @@ export default function AuthPage() {
                   setZoom(1);
                   setOffset({ x: 0, y: 0 });
                 }}
-                className="inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:text-emerald-700"
+                style={{
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  borderRadius: '9999px',
+                  padding: '3px 8px',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  color: '#475569',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  cursor: 'pointer',
+                }}
               >
-                <RotateCcw className="h-3 w-3" />
+                <RotateCcw style={{ width: '11px', height: '11px' }} />
                 <span>รีเซ็ต</span>
               </button>
             </div>
 
-            <div className="flex items-center gap-2.5 pt-1">
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
               <button
                 type="button"
                 onClick={() => setIsCropModalOpen(false)}
-                className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '14px',
+                  border: '1px solid #e2e8f0',
+                  background: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: '#475569',
+                  cursor: 'pointer',
+                }}
               >
                 ยกเลิก
               </button>
               <button
                 type="button"
                 onClick={handleConfirmCrop}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-2.5 text-xs font-bold text-white shadow-sm transition active:scale-95"
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '14px',
+                  border: 'none',
+                  background: '#059669',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: '#ffffff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                }}
               >
-                <Check className="h-4 w-4" />
+                <Check style={{ width: '15px', height: '15px' }} />
                 <span>ใช้รูปนี้</span>
               </button>
             </div>
@@ -528,192 +688,299 @@ export default function AuthPage() {
         </div>
       )}
 
-      {/* CSS ล็อกขนาดรูปภาพวงกลมทุกจุดด้วย !important */}
-      <style jsx>{`
-        svg {
-          max-width: 22px !important;
-          max-height: 22px !important;
-          display: inline-block;
-          flex-shrink: 0;
-        }
-        .loader-gif-box {
-          width: 140px !important;
-          height: 140px !important;
-        }
-        .loader-gif-img {
-          width: 140px !important;
-          height: 140px !important;
-          max-width: 140px !important;
-          max-height: 140px !important;
-          object-fit: cover !important;
-        }
-        .dashed-circle-picker {
-          width: 56px !important;
-          height: 56px !important;
-          min-width: 56px !important;
-          min-height: 56px !important;
-          border-radius: 9999px !important;
-          border: 2px dashed #10b981 !important;
-        }
-        .final-avatar-circle {
-          width: 92px !important;
-          height: 92px !important;
-          min-width: 92px !important;
-          min-height: 92px !important;
-          max-width: 92px !important;
-          max-height: 92px !important;
-          border-radius: 9999px !important;
-          overflow: hidden !important;
-        }
-        .final-avatar-img {
-          width: 92px !important;
-          height: 92px !important;
-          max-width: 92px !important;
-          max-height: 92px !important;
-          object-fit: cover !important;
-          border-radius: 9999px !important;
-        }
-        .crop-stage-box {
-          width: 220px !important;
-          height: 220px !important;
-          min-width: 220px !important;
-          min-height: 220px !important;
-          border-radius: 9999px !important;
-          overflow: hidden !important;
-        }
-        .crop-stage-img {
-          width: 220px !important;
-          height: 220px !important;
-          max-width: 220px !important;
-          max-height: 220px !important;
-          object-fit: cover !important;
-        }
-        .profile-badge-box {
-          width: 64px !important;
-          height: 64px !important;
-          min-width: 64px !important;
-          min-height: 64px !important;
-          border-radius: 9999px !important;
-          overflow: hidden !important;
-        }
-        .profile-badge-img {
-          width: 64px !important;
-          height: 64px !important;
-          max-width: 64px !important;
-          max-height: 64px !important;
-          object-fit: cover !important;
-        }
-      `}</style>
-
-      {/* แถบเมนูบน */}
-      <header className="border-b border-white/10 bg-black/20 backdrop-blur-md">
-        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+      {/* แถบเมนูด้านบน */}
+      <header
+        style={{
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          background: 'rgba(0,0,0,0.2)',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '760px',
+            margin: '0 auto',
+            padding: '0 16px',
+            height: '56px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <button
             type="button"
             onClick={() =>
-              triggerGifLoader('กำลังกลับหน้าร้าน Tracen Collectibles...', 650, () => {
+              triggerGifLoader('กำลังกลับหน้าร้าน...', 600, () => {
                 router.push('/');
               })
             }
-            className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 px-3.5 py-1.5 text-xs font-semibold text-white transition active:scale-95"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              borderRadius: '9999px',
+              background: 'rgba(255,255,255,0.12)',
+              border: '1px solid rgba(255,255,255,0.18)',
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: '#ffffff',
+              cursor: 'pointer',
+            }}
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft style={{ width: '15px', height: '15px' }} />
             <span>กลับหน้าร้าน</span>
           </button>
 
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 border border-amber-300/30 px-3 py-1 text-[11px] font-bold text-amber-200">
-            <Sparkles className="h-3 w-3 text-amber-300" />
-            <span>TRACEN PASS {AUTH_UI_VERSION}</span>
+          <span
+            style={{
+              borderRadius: '9999px',
+              background: 'rgba(251, 191, 36, 0.2)',
+              border: '1px solid rgba(251, 191, 36, 0.4)',
+              padding: '4px 12px',
+              fontSize: '11px',
+              fontWeight: 800,
+              color: '#fde68a',
+            }}
+          >
+            TRACEN ID {UI_VERSION}
           </span>
         </div>
       </header>
 
-      {/* บัตรประจำตัวเทรนเนอร์ (Single Compact Card ไม่ยืดยาว) */}
-      <main className="flex-1 flex items-center justify-center px-4 py-6">
-        <div className="w-full max-w-[420px] rounded-3xl bg-white shadow-2xl overflow-hidden border border-white/25">
-          {/* แถบหัวบัตรสีเขียวมรกต-ทอง */}
-          <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 px-6 py-4 text-white flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl bg-amber-400 text-slate-950 font-black text-base flex items-center justify-center shadow-xs">
+      {/* กล่องกลางใบเดียวขนาดพอดีจอ */}
+      <main
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '24px 16px',
+        }}
+      >
+        <div
+          style={{
+            width: '100%',
+            maxWidth: '410px',
+            background: '#ffffff',
+            borderRadius: '28px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
+              padding: '18px 24px',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '11px',
+                  background: '#fbbf24',
+                  color: '#0f172a',
+                  fontWeight: 900,
+                  fontSize: '17px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
                 U
               </div>
               <div>
-                <p className="text-sm font-extrabold leading-none">Tracen Collectibles</p>
-                <p className="text-[11px] text-emerald-100 mt-1">Trainer Membership Card</p>
+                <p style={{ fontSize: '14px', fontWeight: 800, margin: 0, lineHeight: 1.1 }}>
+                  Tracen Collectibles
+                </p>
+                <p style={{ fontSize: '11px', color: '#d1fae5', margin: '3px 0 0 0' }}>
+                  Trainer Account Portal
+                </p>
               </div>
             </div>
-            <ShieldCheck className="h-5 w-5 text-amber-300" />
+            <Shield style={{ width: '20px', height: '20px', color: '#fde68a' }} />
           </div>
 
-          <div className="p-6">
+          <div style={{ padding: '24px' }}>
             {checkingSession ? (
-              <div className="py-12 flex flex-col items-center justify-center gap-2.5 text-slate-500 text-xs">
-                <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
-                <span>กำลังตรวจสอบสถานะบัญชี...</span>
+              <div
+                style={{
+                  padding: '40px 0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '10px',
+                  color: '#64748b',
+                  fontSize: '12px',
+                }}
+              >
+                <Loader2
+                  className="animate-spin"
+                  style={{ width: '24px', height: '24px', color: '#059669' }}
+                />
+                <span>กำลังตรวจสอบบัญชี...</span>
               </div>
             ) : currentUser ? (
-              <div className="space-y-5">
-                <div className="flex items-center gap-3.5">
-                  <div className="profile-badge-box bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-extrabold text-xl shadow-sm shrink-0">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div
+                    style={{
+                      width: '62px',
+                      height: '62px',
+                      borderRadius: '9999px',
+                      overflow: 'hidden',
+                      background: '#059669',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '22px',
+                      fontWeight: 800,
+                      flexShrink: 0,
+                    }}
+                  >
                     {currentAvatarUrl ? (
                       <img
                         src={currentAvatarUrl}
                         alt={displayTitle}
-                        className="profile-badge-img"
+                        style={{
+                          width: '62px',
+                          height: '62px',
+                          objectFit: 'cover',
+                          display: 'block',
+                        }}
                       />
                     ) : (
                       displayTitle.charAt(0).toUpperCase()
                     )}
                   </div>
-                  <div className="min-w-0">
-                    <span className="inline-block rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                  <div style={{ minWidth: 0 }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        background: '#ecfdf5',
+                        border: '1px solid #a7f3d0',
+                        color: '#047857',
+                        borderRadius: '9999px',
+                        padding: '2px 10px',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                      }}
+                    >
                       เข้าสู่ระบบแล้ว
                     </span>
-                    <h1 className="text-lg font-extrabold text-slate-900 truncate mt-1">
+                    <h1
+                      style={{
+                        fontSize: '17px',
+                        fontWeight: 800,
+                        color: '#0f172a',
+                        margin: '4px 0 2px 0',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
                       {displayTitle}
                     </h1>
-                    <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        color: '#64748b',
+                        margin: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {currentUser.email}
+                    </p>
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5 text-xs text-slate-600 leading-relaxed">
-                  บัญชีของคุณซิงค์บน Cloud เรียบร้อย สามารถนำอีเมลและรหัสผ่านนี้ไปล็อกอินบนอุปกรณ์อื่นได้ทันทีครับ
-                </div>
-
                 {successMsg && (
-                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 font-semibold flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                  <div
+                    style={{
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      borderRadius: '12px',
+                      padding: '10px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#065f46',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <CheckCircle2 style={{ width: '16px', height: '16px', flexShrink: 0 }} />
                     <span>{successMsg}</span>
                   </div>
                 )}
 
-                <div className="space-y-2.5">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      triggerGifLoader('กำลังกลับหน้าร้าน...', 650, () => {
-                        router.push('/');
-                      })
-                    }
-                    className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 text-sm font-bold text-white transition active:scale-95"
-                  >
-                    ไปเลือกช้อปของสะสมต่อ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition active:scale-95 disabled:opacity-60"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>ออกจากระบบ</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    triggerGifLoader('กำลังกลับหน้าร้าน...', 600, () => {
+                      router.push('/');
+                    })
+                  }
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '16px',
+                    border: 'none',
+                    background: '#059669',
+                    color: '#ffffff',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ไปเลือกช้อปของสะสมต่อ
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '16px',
+                    border: '1px solid #fecdd3',
+                    background: '#fff1f2',
+                    color: '#be123c',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <LogOut style={{ width: '15px', height: '15px' }} />
+                  <span>ออกจากระบบ</span>
+                </button>
               </div>
             ) : (
-              <div className="space-y-4">
-                {/* แถบสลับโหมด เข้าสู่ระบบ / สมัครสมาชิก */}
-                <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '6px',
+                    background: '#f1f5f9',
+                    padding: '4px',
+                    borderRadius: '16px',
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => {
@@ -721,11 +988,17 @@ export default function AuthPage() {
                       setErrorMsg(null);
                       setSuccessMsg(null);
                     }}
-                    className={`rounded-xl py-2 text-xs font-bold transition ${
-                      mode === 'login'
-                        ? 'bg-white text-emerald-700 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
+                    style={{
+                      padding: '8px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: mode === 'login' ? '#ffffff' : 'transparent',
+                      color: mode === 'login' ? '#047857' : '#64748b',
+                      boxShadow: mode === 'login' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                    }}
                   >
                     เข้าสู่ระบบ
                   </button>
@@ -736,48 +1009,102 @@ export default function AuthPage() {
                       setErrorMsg(null);
                       setSuccessMsg(null);
                     }}
-                    className={`rounded-xl py-2 text-xs font-bold transition ${
-                      mode === 'register'
-                        ? 'bg-white text-emerald-700 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
+                    style={{
+                      padding: '8px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: mode === 'register' ? '#ffffff' : 'transparent',
+                      color: mode === 'register' ? '#047857' : '#64748b',
+                      boxShadow: mode === 'register' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                    }}
                   >
                     สมัครสมาชิกใหม่
                   </button>
                 </div>
 
                 {errorMsg && (
-                  <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 font-semibold flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
+                  <div
+                    style={{
+                      background: '#fff1f2',
+                      border: '1px solid #fecdd3',
+                      borderRadius: '12px',
+                      padding: '10px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#be123c',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                    }}
+                  >
+                    <AlertCircle
+                      style={{ width: '16px', height: '16px', flexShrink: 0, marginTop: '1px' }}
+                    />
                     <span>{errorMsg}</span>
                   </div>
                 )}
 
                 {successMsg && (
-                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 font-semibold flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" />
+                  <div
+                    style={{
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      borderRadius: '12px',
+                      padding: '10px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#065f46',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                    }}
+                  >
+                    <CheckCircle2
+                      style={{ width: '16px', height: '16px', flexShrink: 0, marginTop: '1px' }}
+                    />
                     <span>{successMsg}</span>
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-3.5">
-                  {/* ช่องใส่รูปโปรไฟล์: ก่อนใส่มีวงกลมรอยปะ + คำอธิบาย / หลังใส่แล้วคำอธิบายหายไป เหลือแค่ภาพวงกลม */}
+                <form
+                  onSubmit={handleSubmit}
+                  style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+                >
                   {mode === 'register' && (
                     <>
                       {croppedAvatarUrl ? (
-                        <div className="flex justify-center py-1">
-                          <div className="relative">
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
+                          <div style={{ position: 'relative', width: '90px', height: '90px' }}>
                             <div
                               onClick={() => {
                                 if (rawImageToCrop) setIsCropModalOpen(true);
                               }}
-                              className="final-avatar-circle border-2 border-emerald-500 bg-white shadow-md cursor-pointer"
                               title="แตะเพื่อตัดกรอบรูปใหม่"
+                              style={{
+                                width: '90px',
+                                height: '90px',
+                                borderRadius: '9999px',
+                                overflow: 'hidden',
+                                border: '3px solid #10b981',
+                                background: '#ffffff',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                                cursor: 'pointer',
+                              }}
                             >
                               <img
                                 src={croppedAvatarUrl}
-                                alt="รูปโปรไฟล์"
-                                className="final-avatar-img"
+                                alt="avatar"
+                                style={{
+                                  width: '90px',
+                                  height: '90px',
+                                  maxWidth: '90px',
+                                  maxHeight: '90px',
+                                  objectFit: 'cover',
+                                  display: 'block',
+                                }}
                               />
                             </div>
 
@@ -785,55 +1112,133 @@ export default function AuthPage() {
                               <button
                                 type="button"
                                 onClick={() => setIsCropModalOpen(true)}
-                                style={{ width: '26px', height: '26px' }}
-                                className="absolute -bottom-1 -left-1 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-sm hover:bg-emerald-700"
                                 title="ตัดกรอบรูปใหม่"
+                                style={{
+                                  position: 'absolute',
+                                  bottom: '-2px',
+                                  left: '-2px',
+                                  width: '26px',
+                                  height: '26px',
+                                  borderRadius: '9999px',
+                                  border: '2px solid #ffffff',
+                                  background: '#059669',
+                                  color: '#ffffff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                }}
                               >
-                                <Crop className="h-3.5 w-3.5" />
+                                <Crop style={{ width: '13px', height: '13px' }} />
                               </button>
                             )}
 
                             <button
                               type="button"
                               onClick={handleRemoveAvatar}
-                              style={{ width: '26px', height: '26px' }}
-                              className="absolute -top-1 -right-1 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-sm hover:bg-rose-700"
                               title="ลบรูป"
+                              style={{
+                                position: 'absolute',
+                                top: '-2px',
+                                right: '-2px',
+                                width: '26px',
+                                height: '26px',
+                                borderRadius: '9999px',
+                                border: '2px solid #ffffff',
+                                background: '#e11d48',
+                                color: '#ffffff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                              }}
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <X style={{ width: '13px', height: '13px' }} />
                             </button>
                           </div>
                         </div>
                       ) : (
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 flex items-center gap-3">
+                        <div
+                          style={{
+                            borderRadius: '18px',
+                            border: '1px solid #e2e8f0',
+                            background: '#f8fafc',
+                            padding: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                          }}
+                        >
                           <label
-                            className="dashed-circle-picker bg-white flex items-center justify-center cursor-pointer hover:bg-emerald-50/70 transition shrink-0"
                             title="แตะเพื่อเลือกรูปภาพ"
+                            style={{
+                              width: '54px',
+                              height: '54px',
+                              borderRadius: '9999px',
+                              border: '2px dashed #10b981',
+                              background: '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                            }}
                           >
-                            <ImagePlus className="h-5 w-5 text-emerald-600" />
+                            <Camera style={{ width: '22px', height: '22px', color: '#059669' }} />
                             <input
                               type="file"
                               accept="image/jpeg,image/png,image/webp"
                               onChange={handleAvatarChange}
-                              className="hidden"
+                              style={{ display: 'none' }}
                             />
                           </label>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-bold text-slate-800 truncate">
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '8px',
+                              }}
+                            >
+                              <span
+                                style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}
+                              >
                                 รูปโปรไฟล์
                               </span>
                               <button
                                 type="button"
-                                onClick={handlePasteFromClipboardButton}
-                                className="inline-flex items-center gap-1 rounded-full bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 text-[11px] font-bold text-emerald-800 transition shrink-0"
+                                onClick={handlePasteButton}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  borderRadius: '9999px',
+                                  border: 'none',
+                                  background: '#d1fae5',
+                                  color: '#065f46',
+                                  padding: '4px 10px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  flexShrink: 0,
+                                }}
                               >
-                                <ClipboardPaste className="h-3 w-3" />
+                                <Clipboard style={{ width: '12px', height: '12px' }} />
                                 <span>วางรูป</span>
                               </button>
                             </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                            <p
+                              style={{
+                                fontSize: '11px',
+                                color: '#64748b',
+                                margin: '3px 0 0 0',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
                               แตะวงกลมหรือกด Ctrl + V วางรูปได้เลย
                             </p>
                           </div>
@@ -844,53 +1249,137 @@ export default function AuthPage() {
 
                   {mode === 'register' && (
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                        ชื่อเทรนเนอร์
-                      </label>
-                      <div className="relative">
-                        <UserCircle2 className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: '5px',
+                        }}
+                      >
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>
+                          ชื่อเทรนเนอร์
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleRandomName}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: '#059669',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            cursor: 'pointer',
+                            padding: 0,
+                          }}
+                        >
+                          <Wand2 style={{ width: '12px', height: '12px' }} />
+                          <span>สุ่มชื่อเท่ๆ</span>
+                        </button>
+                      </div>
+                      <div style={{ position: 'relative' }}>
+                        <UserIcon
+                          style={{
+                            position: 'absolute',
+                            left: '14px',
+                            top: '11px',
+                            width: '16px',
+                            height: '16px',
+                            color: '#94a3b8',
+                          }}
+                        />
                         <input
                           type="text"
                           required
                           placeholder="เช่น สเปเชียล เท็น หรือ เทรนเนอร์ซากุระ"
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-3.5 py-2 text-sm focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10 focus:outline-none transition"
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            borderRadius: '14px',
+                            border: '1px solid #cbd5e1',
+                            background: '#f8fafc',
+                            padding: '9px 14px 9px 38px',
+                            fontSize: '13px',
+                            color: '#0f172a',
+                            outline: 'none',
+                          }}
                         />
                       </div>
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#475569',
+                        marginBottom: '5px',
+                      }}
+                    >
                       อีเมล
                     </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+                    <div style={{ position: 'relative' }}>
+                      <Mail
+                        style={{
+                          position: 'absolute',
+                          left: '14px',
+                          top: '11px',
+                          width: '16px',
+                          height: '16px',
+                          color: '#94a3b8',
+                        }}
+                      />
                       <input
                         type="email"
                         required
                         placeholder="trainer.tracen@gmail.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-3.5 py-2 text-sm focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10 focus:outline-none transition"
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          borderRadius: '14px',
+                          border: '1px solid #cbd5e1',
+                          background: '#f8fafc',
+                          padding: '9px 14px 9px 38px',
+                          fontSize: '13px',
+                          color: '#0f172a',
+                          outline: 'none',
+                        }}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[11px] font-bold text-slate-600">
-                        รหัสผ่าน (6 ตัวอักษรขึ้นไป)
-                      </label>
-                      {mode === 'register' && password.length > 0 && (
-                        <span className="text-[10px] font-bold text-slate-500">
-                          {pwStrength.label}
-                        </span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#475569',
+                        marginBottom: '5px',
+                      }}
+                    >
+                      รหัสผ่าน (6 ตัวอักษรขึ้นไป)
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <Lock
+                        style={{
+                          position: 'absolute',
+                          left: '14px',
+                          top: '11px',
+                          width: '16px',
+                          height: '16px',
+                          color: '#94a3b8',
+                        }}
+                      />
                       <input
                         type={showPassword ? 'text' : 'password'}
                         required
@@ -898,41 +1387,68 @@ export default function AuthPage() {
                         placeholder="••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-10 py-2 text-sm focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10 focus:outline-none transition"
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          borderRadius: '14px',
+                          border: '1px solid #cbd5e1',
+                          background: '#f8fafc',
+                          padding: '9px 38px 9px 38px',
+                          fontSize: '13px',
+                          color: '#0f172a',
+                          outline: 'none',
+                        }}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword((prev) => !prev)}
-                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700"
-                        title={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                        style={{
+                          position: 'absolute',
+                          right: '12px',
+                          top: '10px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#64748b',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
                       >
                         {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
+                          <EyeOff style={{ width: '16px', height: '16px' }} />
                         ) : (
-                          <Eye className="h-4 w-4" />
+                          <Eye style={{ width: '16px', height: '16px' }} />
                         )}
                       </button>
                     </div>
-
-                    {/* แถบวัดความแข็งแรงรหัสผ่านตอนสมัครสมาชิก */}
-                    {mode === 'register' && (
-                      <div className="h-1 w-full rounded-full bg-slate-100 mt-1.5 overflow-hidden">
-                        <div
-                          style={{ width: pwStrength.width }}
-                          className={`h-full transition-all duration-300 ${pwStrength.color}`}
-                        />
-                      </div>
-                    )}
                   </div>
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 py-3 text-sm font-bold text-white shadow-md transition active:scale-95 disabled:opacity-60 mt-1"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '16px',
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
+                      color: '#ffffff',
+                      fontSize: '14px',
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      marginTop: '4px',
+                      boxShadow: '0 8px 20px -4px rgba(5, 150, 105, 0.4)',
+                    }}
                   >
                     {loading ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2
+                          className="animate-spin"
+                          style={{ width: '16px', height: '16px' }}
+                        />
                         <span>กำลังดำเนินการ...</span>
                       </>
                     ) : (
@@ -946,7 +1462,14 @@ export default function AuthPage() {
         </div>
       </main>
 
-      <footer className="py-3 px-4 text-center text-[11px] text-emerald-200/70">
+      <footer
+        style={{
+          padding: '12px 16px',
+          textAlign: 'center',
+          fontSize: '11px',
+          color: 'rgba(167, 243, 208, 0.7)',
+        }}
+      >
         Tracen Collectibles • ระบบบัญชีสมาชิกข้ามอุปกรณ์ผ่าน Supabase
       </footer>
     </div>
