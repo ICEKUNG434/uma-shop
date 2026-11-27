@@ -45,7 +45,7 @@ import {
   Award,
 } from 'lucide-react';
 
-const APP_VERSION = 'v3.8';
+const APP_VERSION = 'v3.9';
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 
@@ -295,7 +295,6 @@ export default function UmaShopPage() {
   const [loadingGifIdx, setLoadingGifIdx] = useState(0);
   const [loadingText, setLoadingText] = useState('กำลังโหลดร้าน Tracen Collectibles...');
 
-  // State สำหรับ Pop-up นามบัตรเทรนเนอร์ 3D เคลื่อนไหว + แก้ไขข้อมูล
   const [isProfileCardOpen, setIsProfileCardOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
@@ -994,14 +993,14 @@ export default function UmaShopPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900 pb-24 md:pb-0">
-      {/* หน้าโหลดสีสดใสพร้อมสลับ GIF */}
+      {/* หน้าโหลดโทนมืดกระจกพรีเมียม (ไม่ดูเหมือนโฆษณา) */}
       {isLoadingScreen && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
             zIndex: 9999,
-            background: 'linear-gradient(135deg, #10b981 0%, #14b8a6 50%, #f59e0b 100%)',
+            background: 'radial-gradient(circle at 50% 35%, #064e3b 0%, #041813 55%, #070d17 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1010,41 +1009,82 @@ export default function UmaShopPage() {
         >
           <div
             style={{
-              background: 'rgba(255,255,255,0.22)',
-              backdropFilter: 'blur(12px)',
-              borderRadius: '24px',
-              border: '1px solid rgba(255,255,255,0.45)',
-              padding: '20px',
-              width: '280px',
+              background: 'rgba(15, 23, 42, 0.72)',
+              backdropFilter: 'blur(16px)',
+              borderRadius: '28px',
+              border: '1px solid rgba(110, 231, 183, 0.22)',
+              padding: '24px 28px',
+              width: '250px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               gap: '14px',
               textAlign: 'center',
-              color: '#ffffff',
+              color: '#f8fafc',
+              boxShadow: '0 24px 60px -12px rgba(0, 0, 0, 0.65)',
             }}
           >
             <div
               style={{
-                width: '136px',
-                height: '136px',
-                borderRadius: '18px',
+                width: '108px',
+                height: '108px',
+                borderRadius: '9999px',
                 overflow: 'hidden',
-                border: '2px solid #ffffff',
-                background: '#ffffff',
+                border: '2px solid rgba(52, 211, 153, 0.55)',
+                background: '#0f172a',
+                boxShadow: '0 0 24px rgba(16, 185, 129, 0.25)',
               }}
             >
               <img
                 src={LOADING_GIFS[loadingGifIdx]}
-                alt="กำลังโหลด"
-                style={{ width: '136px', height: '136px', objectFit: 'cover', display: 'block' }}
+                alt="loading"
+                style={{ width: '108px', height: '108px', objectFit: 'cover', display: 'block' }}
               />
             </div>
-            <div>
-              <p style={{ fontSize: '14px', fontWeight: 800, margin: 0 }}>{loadingText}</p>
-              <p style={{ fontSize: '11px', opacity: 0.9, marginTop: '4px' }}>
-                Tracen Collectibles {APP_VERSION}
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+              <p
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  margin: 0,
+                  color: '#ecfdf5',
+                }}
+              >
+                {loadingText}
               </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '2px' }}>
+                <span
+                  className="animate-bounce"
+                  style={{
+                    width: '5px',
+                    height: '5px',
+                    borderRadius: '9999px',
+                    background: '#34d399',
+                    animationDelay: '0ms',
+                  }}
+                />
+                <span
+                  className="animate-bounce"
+                  style={{
+                    width: '5px',
+                    height: '5px',
+                    borderRadius: '9999px',
+                    background: '#34d399',
+                    animationDelay: '150ms',
+                  }}
+                />
+                <span
+                  className="animate-bounce"
+                  style={{
+                    width: '5px',
+                    height: '5px',
+                    borderRadius: '9999px',
+                    background: '#34d399',
+                    animationDelay: '300ms',
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1084,7 +1124,6 @@ export default function UmaShopPage() {
               position: 'relative',
             }}
           >
-            {/* แสงสะท้อนโฮโลแกรมวิ่งตามเมาส์บนนามบัตร */}
             <div
               style={{
                 pointerEvents: 'none',
@@ -1096,7 +1135,6 @@ export default function UmaShopPage() {
               }}
             />
 
-            {/* แถบหัวนามบัตรไล่เฉดเคลื่อนไหว */}
             <div
               className="card-header-shimmer"
               style={{
@@ -1849,7 +1887,6 @@ export default function UmaShopPage() {
               )}
             </button>
 
-            {/* ปุ่มโปรไฟล์ด้านบน พร้อมลูกเล่นเด้งหมุนรูปและแสงเงา */}
             <button
               type="button"
               onClick={handleProfileButtonClick}
