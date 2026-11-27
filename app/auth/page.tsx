@@ -22,6 +22,8 @@ import {
   ImagePlus,
   ClipboardPaste,
   X,
+  ZoomIn,
+  RotateCcw,
 } from 'lucide-react';
 
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
@@ -34,13 +36,11 @@ const LOADING_GIFS = [
   'https://media1.tenor.com/m/Gn9gXQJfkVMAAAAC/awful-umamusume.gif',
 ];
 
-function processAvatarFile(
-  file: File,
-  maxWidth = 400,
-  quality = 0.72
+function readRawFile(
+  file: File
 ): Promise<{
-  previewUrl: string;
-  base64Clean: string;
+  rawDataUrl: string;
+  rawBase64: string;
   isGif: boolean;
   sizeKB: number;
 }> {
@@ -51,49 +51,65 @@ function processAvatarFile(
     reader.onload = (event) => {
       const rawDataUrl = (event.target?.result as string) || '';
       const rawBase64 = rawDataUrl.split(',')[1] || '';
-
-      if (isGif) {
-        const sizeKB = Math.max(1, Math.round(file.size / 1024));
-        resolve({
-          previewUrl: rawDataUrl,
-          base64Clean: rawBase64,
-          isGif: true,
-          sizeKB,
-        });
-        return;
-      }
-
-      const img = new Image();
-      img.onload = () => {
-        const scale = img.width > maxWidth ? maxWidth / img.width : 1;
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Canvas context unavailable'));
-          return;
-        }
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-        const base64Clean = compressedDataUrl.split(',')[1] || '';
-        const approxBytes = Math.round((compressedDataUrl.length * 3) / 4);
-        const sizeKB = Math.max(1, Math.round(approxBytes / 1024));
-        resolve({
-          previewUrl: compressedDataUrl,
-          base64Clean,
-          isGif: false,
-          sizeKB,
-        });
-      };
-      img.onerror = reject;
-      img.src = rawDataUrl;
+      const sizeKB = Math.max(1, Math.round(file.size / 1024));
+      resolve({
+        rawDataUrl,
+        rawBase64,
+        isGif,
+        sizeKB,
+      });
     };
 
     reader.onerror = reject;
     reader.readAsDataURL(file);
+  });
+}
+
+function cropStaticImageToCircleBase64(
+  imageSrc: string,
+  zoom: number,
+  offsetX: number,
+  offsetY: number,
+  outputSize = 360,
+  previewBoxSize = 84
+): Promise<{ base64Clean: string; sizeKB: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = outputSize;
+      canvas.height = outputSize;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Canvas unavailable'));
+        return;
+      }
+
+      // วาดกรอบวงกลม
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(outputSize / 2, outputSize / 2, outputSize / 2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+
+      const scaleFactor = outputSize / previewBoxSize;
+      const baseScale = Math.max(outputSize / img.width, outputSize / img.height);
+      const drawW = img.width * baseScale * zoom;
+      const drawH = img.height * baseScale * zoom;
+      const drawX = outputSize / 2 - drawW / 2 + offsetX * scaleFactor;
+      const drawY = outputSize / 2 - drawH / 2 + offsetY * scaleFactor;
+
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      ctx.restore();
+
+      const dataUrl = canvas.toDataURL('image/png', 0.85);
+      const base64Clean = dataUrl.split(',')[1] || '';
+      const approxBytes = Math.round((dataUrl.length * 3) / 4);
+      const sizeKB = Math.max(1, Math.round(approxBytes / 1024));
+      resolve({ base64Clean, sizeKB });
+    };
+    img.onerror = reject;
+    img.src = imageSrc;
   });
 }
 
@@ -112,10 +128,15 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
+  // รูปโปรไฟล์ / GIF + ปรับซูมและเลื่อนตำแหน่งพื้นที่ภาพในวงกลม
+  const [avatarRawUrl, setAvatarRawUrl] = useState<string | null>(null);
+  const [avatarRawBase64, setAvatarRawBase64] = useState<string | null>(null);
   const [avatarIsGif, setAvatarIsGif] = useState(false);
   const [avatarSizeKB, setAvatarSizeKB] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -167,11 +188,13 @@ export default function AuthPage() {
 
     setErrorMsg(null);
     try {
-      const processed = await processAvatarFile(file, 400, 0.72);
-      setAvatarPreview(processed.previewUrl);
-      setAvatarBase64(processed.base64Clean);
-      setAvatarIsGif(processed.isGif);
-      setAvatarSizeKB(processed.sizeKB);
+      const raw = await readRawFile(file);
+      setAvatarRawUrl(raw.rawDataUrl);
+      setAvatarRawBase64(raw.rawBase64);
+      setAvatarIsGif(raw.isGif);
+      setAvatarSizeKB(raw.sizeKB);
+      setZoom(1);
+      setOffset({ x: 0, y: 0 });
     } catch {
       setErrorMsg('ไม่สามารถอ่านไฟล์รูปโปรไฟล์นี้ได้ กรุณาลองใหม่อีกครั้งครับ');
     }
@@ -237,21 +260,59 @@ export default function AuthPage() {
     await applyAvatarFile(file);
   };
 
-  const handleRemoveAvatar = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setAvatarPreview(null);
-    setAvatarBase64(null);
+  const handleRemoveAvatar = () => {
+    setAvatarRawUrl(null);
+    setAvatarRawBase64(null);
     setAvatarIsGif(false);
     setAvatarSizeKB(0);
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!avatarRawUrl) return;
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    const nextX = Math.max(-45, Math.min(45, e.clientX - dragStart.x));
+    const nextY = Math.max(-45, Math.min(45, e.clientY - dragStart.y));
+    setOffset({ x: nextX, y: nextY });
+  };
+
+  const handlePointerUp = () => {
+    setIsDragging(false);
   };
 
   const uploadAvatarToImgBB = async (): Promise<string | null> => {
-    if (!avatarBase64) return null;
+    if (!avatarRawUrl) return null;
+
+    let base64ToUpload = avatarRawBase64;
+    if (!avatarIsGif) {
+      try {
+        const cropped = await cropStaticImageToCircleBase64(
+          avatarRawUrl,
+          zoom,
+          offset.x,
+          offset.y,
+          360,
+          84
+        );
+        base64ToUpload = cropped.base64Clean;
+      } catch {
+        base64ToUpload = avatarRawBase64;
+      }
+    }
+
+    if (!base64ToUpload) return null;
+
     try {
       const formData = new FormData();
       formData.append('key', IMGBB_API_KEY);
-      formData.append('image', avatarBase64);
+      formData.append('image', base64ToUpload);
       formData.append('name', `trainer-avatar-${Date.now()}`);
 
       const res = await fetch('https://api.imgbb.com/1/upload', {
@@ -278,7 +339,7 @@ export default function AuthPage() {
     try {
       if (mode === 'register') {
         let uploadedAvatarUrl: string | null = null;
-        if (avatarBase64) {
+        if (avatarRawUrl) {
           uploadedAvatarUrl = await uploadAvatarToImgBB();
         }
 
@@ -436,7 +497,7 @@ export default function AuthPage() {
 
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 border border-amber-300/30 px-3 py-1 text-xs font-bold text-amber-200">
             <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
-            <span>GIF + Paste Ready</span>
+            <span>Circle Crop + GIF</span>
           </span>
         </div>
       </header>
@@ -465,7 +526,7 @@ export default function AuthPage() {
                 ยินดีต้อนรับสู่คลับนักสะสม Uma Musume
               </h2>
               <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-                แนบหรือวางรูปโปรไฟล์ / ภาพ GIF เคลื่อนไหว แล้วล็อกอินใช้งานข้ามเครื่องได้ทันที
+                วางหรือแนบรูปโปรไฟล์ / ภาพ GIF ลงในกรอบวงกลม ปรับซูมและตำแหน่งได้ตามใจชอบ
               </p>
             </div>
 
@@ -476,7 +537,7 @@ export default function AuthPage() {
               </div>
               <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/10 p-3">
                 <Heart className="h-4 w-4 text-rose-300 shrink-0" />
-                <span>ก๊อปปี้แล้ววางรูปหรือ GIF ลงโปรไฟล์ได้ทันที</span>
+                <span>กรอบวงกลม ปรับซูมและลากพื้นที่ภาพเองได้</span>
               </div>
               <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/10 p-3">
                 <ShieldCheck className="h-4 w-4 text-emerald-300 shrink-0" />
@@ -503,7 +564,7 @@ export default function AuthPage() {
                       maxWidth: '64px',
                       maxHeight: '64px',
                     }}
-                    className="relative rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-extrabold text-2xl shadow-md shrink-0 overflow-hidden"
+                    className="relative rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-extrabold text-2xl shadow-md shrink-0 overflow-hidden"
                   >
                     {currentAvatarUrl ? (
                       <img
@@ -520,7 +581,7 @@ export default function AuthPage() {
                     ) : (
                       displayTitle.charAt(0).toUpperCase()
                     )}
-                    <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-emerald-400 border-2 border-white" />
+                    <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 border-white" />
                   </div>
                   <div className="min-w-0">
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-0.5 text-[11px] font-bold text-emerald-700">
@@ -584,7 +645,7 @@ export default function AuthPage() {
                   <p className="text-xs sm:text-sm text-slate-500 mt-1">
                     {mode === 'login'
                       ? 'กรอกอีเมลและรหัสผ่านเพื่อเข้าใช้งานบัญชีของคุณ'
-                      : 'สร้างบัญชีฟรี พร้อมแนบหรือวางรูปโปรไฟล์ / ภาพ GIF'}
+                      : 'สร้างบัญชีฟรี พร้อมกรอบรูปโปรไฟล์วงกลมและภาพ GIF'}
                   </p>
                 </div>
 
@@ -636,84 +697,147 @@ export default function AuthPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* ช่องแนบหรือก๊อปปี้แล้ววางรูปโปรไฟล์ / ภาพ GIF (ล็อกขนาดรูปตรงแท็ก img + จัดเรียงบน-ล่างไม่เบียดข้อความ) */}
+                  {/* ช่องรูปโปรไฟล์ / ภาพ GIF แบบกรอบวงกลม + ปรับซูมและลากพื้นที่ภาพได้ */}
                   {mode === 'register' && (
-                    <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-4 flex flex-col items-center text-center gap-3">
-                      <label
-                        style={{
-                          width: '84px',
-                          height: '84px',
-                          minWidth: '84px',
-                          minHeight: '84px',
-                          maxWidth: '84px',
-                          maxHeight: '84px',
-                        }}
-                        className="relative rounded-full border-2 border-dashed border-emerald-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden shadow-xs hover:border-emerald-600 transition group"
-                      >
-                        {avatarPreview ? (
-                          <img
-                            src={avatarPreview}
-                            alt="ตัวอย่างรูปโปรไฟล์"
-                            style={{
-                              width: '84px',
-                              height: '84px',
-                              maxWidth: '84px',
-                              maxHeight: '84px',
-                              objectFit: 'cover',
-                              borderRadius: '9999px',
-                            }}
-                          />
-                        ) : (
-                          <ImagePlus className="h-7 w-7 text-emerald-600 group-hover:scale-110 transition-transform" />
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*,.gif"
-                          onChange={handleAvatarChange}
-                          className="hidden"
-                        />
-                      </label>
-
-                      <div className="space-y-1.5 w-full">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <span className="text-xs font-bold text-slate-800">
-                            รูปโปรไฟล์ / ภาพ GIF
-                          </span>
-                          {avatarIsGif && (
-                            <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-800">
-                              GIF เคลื่อนไหว
-                            </span>
+                    <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3.5 space-y-3">
+                      <div className="flex items-center gap-3.5">
+                        {/* กรอบวงกลม 84x84px */}
+                        <div className="relative shrink-0">
+                          {avatarRawUrl ? (
+                            <div
+                              onPointerDown={handlePointerDown}
+                              onPointerMove={handlePointerMove}
+                              onPointerUp={handlePointerUp}
+                              style={{
+                                width: '84px',
+                                height: '84px',
+                                minWidth: '84px',
+                                minHeight: '84px',
+                                maxWidth: '84px',
+                                maxHeight: '84px',
+                                touchAction: 'none',
+                              }}
+                              className="relative rounded-full border-2 border-emerald-500 bg-white overflow-hidden shadow-xs cursor-grab active:cursor-grabbing select-none"
+                              title="ลากเพื่อเลื่อนพื้นที่ภาพในวงกลม"
+                            >
+                              <img
+                                src={avatarRawUrl}
+                                alt="ตัวอย่างรูปโปรไฟล์"
+                                draggable={false}
+                                style={{
+                                  width: '84px',
+                                  height: '84px',
+                                  maxWidth: '84px',
+                                  maxHeight: '84px',
+                                  objectFit: 'cover',
+                                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                                  transformOrigin: 'center center',
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <label
+                              style={{
+                                width: '84px',
+                                height: '84px',
+                                minWidth: '84px',
+                                minHeight: '84px',
+                                maxWidth: '84px',
+                                maxHeight: '84px',
+                              }}
+                              className="rounded-full border-2 border-dashed border-emerald-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden hover:border-emerald-600 transition group"
+                              title="แตะเพื่อเลือกรูปหรือภาพ GIF"
+                            >
+                              <ImagePlus className="h-6 w-6 text-emerald-600 group-hover:scale-110 transition-transform" />
+                              <input
+                                type="file"
+                                accept="image/*,.gif"
+                                onChange={handleAvatarChange}
+                                className="hidden"
+                              />
+                            </label>
                           )}
-                        </div>
 
-                        <p className="text-[11px] text-slate-500">
-                          {avatarPreview
-                            ? `พร้อมใช้งาน (${avatarSizeKB} KB) — กด Ctrl+V หรือแตะวงกลมเพื่อเปลี่ยน`
-                            : 'แตะวงกลมด้านบนเพื่อเลือกรูป/GIF หรือกด Ctrl + V วางได้เลย'}
-                        </p>
-
-                        <div className="flex items-center justify-center gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={handlePasteFromClipboardButton}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 text-[11px] font-bold text-emerald-800 transition"
-                          >
-                            <ClipboardPaste className="h-3.5 w-3.5" />
-                            <span>วางรูป / GIF จากคลิปบอร์ด</span>
-                          </button>
-
-                          {avatarPreview && (
+                          {avatarRawUrl && (
                             <button
                               type="button"
                               onClick={handleRemoveAvatar}
-                              className="inline-flex items-center gap-1 rounded-xl bg-rose-100 hover:bg-rose-200 px-2.5 py-1.5 text-[11px] font-bold text-rose-700 transition"
+                              style={{ width: '22px', height: '22px' }}
+                              className="absolute -top-1 -right-1 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-sm hover:bg-rose-700"
+                              title="ลบรูป"
                             >
-                              <X className="h-3.5 w-3.5" />
-                              <span>ลบรูป</span>
+                              <X className="h-3 w-3" />
                             </button>
                           )}
                         </div>
+
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-xs font-bold text-slate-800 truncate">
+                                รูปโปรไฟล์ / ภาพ GIF
+                              </span>
+                              {avatarIsGif && (
+                                <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 shrink-0">
+                                  GIF
+                                </span>
+                              )}
+                            </div>
+
+                            {/* ปุ่มวางรูป/GIF แบบวงกลม */}
+                            <button
+                              type="button"
+                              onClick={handlePasteFromClipboardButton}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 text-[11px] font-bold text-emerald-800 transition shrink-0 active:scale-95"
+                              title="วางรูปหรือ GIF จากคลิปบอร์ด"
+                            >
+                              <span className="h-4 w-4 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                                <ClipboardPaste className="h-2.5 w-2.5" />
+                              </span>
+                              <span>วางรูป/GIF</span>
+                            </button>
+                          </div>
+
+                          <p className="text-[11px] text-slate-500 leading-snug">
+                            {avatarRawUrl
+                              ? `ลากในวงกลมเพื่อเลื่อนตำแหน่งได้ (${avatarSizeKB} KB)`
+                              : 'แตะวงกลมหรือก๊อปปี้แล้วกด Ctrl + V วางได้เลย (ไม่บังคับ)'}
+                          </p>
+                        </div>
                       </div>
+
+                      {/* แถบปรับซูมและรีเซ็ตตำแหน่งเมื่อมีรูปในกรอบวงกลม */}
+                      {avatarRawUrl && (
+                        <div className="pt-2 border-t border-slate-200/80 flex items-center gap-2.5 text-[11px] text-slate-600">
+                          <ZoomIn className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                          <span className="shrink-0 font-semibold">ซูม:</span>
+                          <input
+                            type="range"
+                            min={1}
+                            max={2.4}
+                            step={0.05}
+                            value={zoom}
+                            onChange={(e) => setZoom(parseFloat(e.target.value))}
+                            className="flex-1 accent-emerald-600 cursor-pointer h-1.5"
+                            aria-label="ปรับระดับการซูมรูปโปรไฟล์"
+                          />
+                          <span className="font-mono font-bold text-slate-700 w-9 text-right">
+                            {zoom.toFixed(1)}x
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setZoom(1);
+                              setOffset({ x: 0, y: 0 });
+                            }}
+                            className="inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:text-emerald-700 hover:border-emerald-300 transition shrink-0"
+                            title="รีเซ็ตตำแหน่งและขนาดซูม"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            <span>รีเซ็ต</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
 
