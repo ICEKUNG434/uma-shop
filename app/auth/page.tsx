@@ -102,7 +102,6 @@ export default function AuthPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
 
-  // หน้าโหลดสีสดใสพร้อมสลับภาพ GIF
   const [isLoadingScreen, setIsLoadingScreen] = useState(true);
   const [loadingGifIdx, setLoadingGifIdx] = useState(0);
   const [loadingText, setLoadingText] = useState('กำลังโหลดหน้าบัญชีเทรนเนอร์...');
@@ -178,7 +177,6 @@ export default function AuthPage() {
     }
   }, []);
 
-  // รองรับก๊อปปี้แล้ววาง (Ctrl+V / Cmd+V) รูปหรือ GIF ลงช่องสมัครสมาชิก
   useEffect(() => {
     if (mode !== 'register' || currentUser) return;
 
@@ -347,7 +345,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-950 text-slate-900 flex flex-col justify-between">
-      {/* หน้าโหลดสีสดใสพร้อมสลับ GIF เคลื่อนไหว */}
       {isLoadingScreen && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-500 via-teal-500 to-amber-400 p-6 text-white">
           <div className="w-full max-w-xs rounded-3xl bg-white/20 backdrop-blur-md border border-white/40 p-5 shadow-2xl flex flex-col items-center gap-4 text-center">
@@ -494,7 +491,10 @@ export default function AuthPage() {
             ) : currentUser ? (
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                  <div className="relative h-16 w-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-extrabold text-2xl shadow-md shrink-0 overflow-hidden">
+                  <div
+                    style={{ width: '64px', height: '64px', minWidth: '64px', minHeight: '64px' }}
+                    className="relative rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-extrabold text-2xl shadow-md shrink-0 overflow-hidden"
+                  >
                     {currentAvatarUrl ? (
                       <img
                         src={currentAvatarUrl}
@@ -620,11 +620,19 @@ export default function AuthPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* ช่องแนบหรือก๊อปปี้แล้ววางรูปโปรไฟล์ / ภาพ GIF */}
+                  {/* ช่องแนบหรือก๊อปปี้แล้ววางรูปโปรไฟล์ / ภาพ GIF (ล็อกขนาดกล่องคงที่) */}
                   {mode === 'register' && (
                     <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3.5">
-                      <div className="flex items-center gap-4">
-                        <label className="relative h-18 w-18 rounded-2xl border-2 border-dashed border-emerald-400/80 bg-white flex items-center justify-center cursor-pointer overflow-hidden shrink-0 hover:border-emerald-600 transition group">
+                      <div className="flex items-center gap-3.5">
+                        <label
+                          style={{
+                            width: '76px',
+                            height: '76px',
+                            minWidth: '76px',
+                            minHeight: '76px',
+                          }}
+                          className="relative rounded-2xl border-2 border-dashed border-emerald-400/80 bg-white flex items-center justify-center cursor-pointer overflow-hidden shrink-0 hover:border-emerald-600 transition group"
+                        >
                           {avatarPreview ? (
                             <>
                               <img
@@ -653,14 +661,14 @@ export default function AuthPage() {
                         </label>
 
                         <div className="min-w-0 flex-1 space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-bold text-slate-800">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-xs font-bold text-slate-800 truncate">
                                 รูปโปรไฟล์ / ภาพ GIF
                               </span>
                               {avatarIsGif && (
-                                <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-800">
-                                  GIF เคลื่อนไหว
+                                <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 shrink-0">
+                                  GIF
                                 </span>
                               )}
                             </div>
