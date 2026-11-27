@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient, User } from '@supabase/supabase-js';
 import {
@@ -21,6 +20,7 @@ import {
   Heart,
   Trophy,
   ImagePlus,
+  ClipboardPaste,
   X,
 } from 'lucide-react';
 
@@ -28,6 +28,11 @@ const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 const SUPABASE_URL = 'https://jwujhkuudfqpitouiqnw.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_EJM1vWSsz9qNrjRg20lx8A_M-FxsBMq';
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+const LOADING_GIFS = [
+  'https://c.tenor.com/ztf7c4o4fFQAAAAC/tenor.gif',
+  'https://media1.tenor.com/m/Gn9gXQJfkVMAAAAC/awful-umamusume.gif',
+];
 
 function processAvatarFile(
   file: File,
@@ -47,7 +52,6 @@ function processAvatarFile(
       const rawDataUrl = (event.target?.result as string) || '';
       const rawBase64 = rawDataUrl.split(',')[1] || '';
 
-      // ถ้ารองรับไฟล์ GIF ให้คงสภาพแอนิเมชัน GIF ไว้ ห้ามแปลงเป็น Canvas JPEG
       if (isGif) {
         const sizeKB = Math.max(1, Math.round(file.size / 1024));
         resolve({
@@ -97,7 +101,11 @@ export default function AuthPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
-  const [isLeaving, setIsLeaving] = useState(false);
+
+  // หน้าโหลดสีสดใสพร้อมสลับภาพ GIF
+  const [isLoadingScreen, setIsLoadingScreen] = useState(true);
+  const [loadingGifIdx, setLoadingGifIdx] = useState(0);
+  const [loadingText, setLoadingText] = useState('กำลังโหลดหน้าบัญชีเทรนเนอร์...');
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [displayName, setDisplayName] = useState('');
@@ -105,7 +113,6 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // รูปโปรไฟล์ & GIF
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
   const [avatarIsGif, setAvatarIsGif] = useState(false);
@@ -114,6 +121,24 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const triggerGifLoader = useCallback((text: string, durationMs = 750, onDone?: () => void) => {
+    setLoadingText(text);
+    setLoadingGifIdx((prev) => (prev + 1) % LOADING_GIFS.length);
+    setIsLoadingScreen(true);
+    setTimeout(() => {
+      setIsLoadingScreen(false);
+      if (onDone) onDone();
+    }, durationMs);
+  }, []);
+
+  useEffect(() => {
+    setLoadingGifIdx(Math.floor(Math.random() * LOADING_GIFS.length));
+    const timer = setTimeout(() => {
+      setIsLoadingScreen(false);
+    }, 650);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -130,23 +155,12 @@ export default function AuthPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const navigateWithMacSlide = (targetPath: string, delayMs = 260) => {
-    setIsLeaving(true);
-    setTimeout(() => {
-      router.push(targetPath);
-    }, delayMs);
-  };
-
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const applyAvatarFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      setErrorMsg('กรุณาเลือกไฟล์รูปภาพ (JPG, PNG, WEBP หรือ GIF) เท่านั้นครับ');
+      setErrorMsg('กรุณาเลือกหรือวางไฟล์รูปภาพ / ภาพ GIF เท่านั้นครับ');
       return;
     }
 
-    // จำกัดขนาด GIF ไม่ให้ใหญ่เกิน 4 MB เพื่อให้อัปโหลดได้ลื่นไหล
     if (file.type === 'image/gif' && file.size > 4 * 1024 * 1024) {
       setErrorMsg('ไฟล์ GIF ใหญ่เกิน 4 MB กรุณาเลือกไฟล์ GIF ที่ขนาดเล็กลงครับ');
       return;
@@ -162,6 +176,67 @@ export default function AuthPage() {
     } catch {
       setErrorMsg('ไม่สามารถอ่านไฟล์รูปโปรไฟล์นี้ได้ กรุณาลองใหม่อีกครั้งครับ');
     }
+  }, []);
+
+  // รองรับก๊อปปี้แล้ววาง (Ctrl+V / Cmd+V) รูปหรือ GIF ลงช่องสมัครสมาชิก
+  useEffect(() => {
+    if (mode !== 'register' || currentUser) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const clipboardData = e.clipboardData;
+      if (!clipboardData) return;
+
+      if (clipboardData.files && clipboardData.files.length > 0) {
+        const file = clipboardData.files[0];
+        if (file.type.startsWith('image/')) {
+          e.preventDefault();
+          applyAvatarFile(file);
+          return;
+        }
+      }
+
+      if (clipboardData.items) {
+        for (let i = 0; i < clipboardData.items.length; i++) {
+          const item = clipboardData.items[i];
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+              e.preventDefault();
+              applyAvatarFile(file);
+              return;
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [mode, currentUser, applyAvatarFile]);
+
+  const handlePasteFromClipboardButton = async () => {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imgType = item.types.find((t) => t.startsWith('image/'));
+        if (imgType) {
+          const blob = await item.getType(imgType);
+          const ext = imgType === 'image/gif' ? 'gif' : 'png';
+          const file = new File([blob], `pasted-avatar.${ext}`, { type: imgType });
+          await applyAvatarFile(file);
+          return;
+        }
+      }
+      setErrorMsg('ไม่พบรูปภาพหรือ GIF ในคลิปบอร์ด ลองก๊อปปี้รูปหรือ GIF แล้วกดวางอีกครั้งครับ');
+    } catch {
+      setErrorMsg('กด Ctrl + V (หรือ Cmd + V) เพื่อวางรูป/GIF ได้โดยตรงครับ');
+    }
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await applyAvatarFile(file);
   };
 
   const handleRemoveAvatar = (e: React.MouseEvent) => {
@@ -228,10 +303,10 @@ export default function AuthPage() {
             'สมัครสมาชิกสำเร็จ! กรุณากดยืนยันในอีเมล หรือปิด Confirm email ใน Supabase'
           );
         } else {
-          setSuccessMsg('สมัครสมาชิกและตั้งค่าโปรไฟล์สำเร็จ! กำลังเลื่อนกลับหน้าร้าน...');
-          setTimeout(() => {
-            navigateWithMacSlide('/', 260);
-          }, 700);
+          setSuccessMsg('สมัครสมาชิกและตั้งค่าโปรไฟล์สำเร็จ!');
+          triggerGifLoader('กำลังพากลับสู่หน้าร้าน Tracen Collectibles...', 800, () => {
+            router.push('/');
+          });
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -242,10 +317,10 @@ export default function AuthPage() {
         if (error) {
           setErrorMsg('อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้งครับ');
         } else {
-          setSuccessMsg('เข้าสู่ระบบสำเร็จ! กำลังเลื่อนกลับหน้าร้าน...');
-          setTimeout(() => {
-            navigateWithMacSlide('/', 260);
-          }, 650);
+          setSuccessMsg('เข้าสู่ระบบสำเร็จ!');
+          triggerGifLoader('กำลังเข้าสู่ระบบเทรนเนอร์...', 800, () => {
+            router.push('/');
+          });
         }
       }
     } catch {
@@ -271,29 +346,34 @@ export default function AuthPage() {
   const currentAvatarUrl: string | null = currentUser?.user_metadata?.avatar_url || null;
 
   return (
-    <div
-      className={`min-h-screen relative overflow-hidden bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-950 text-slate-900 flex flex-col justify-between transition-all duration-300 ease-out ${
-        isLeaving
-          ? 'opacity-0 translate-x-10 scale-[0.985]'
-          : 'opacity-100 translate-x-0 scale-100'
-      }`}
-    >
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-950 text-slate-900 flex flex-col justify-between">
+      {/* หน้าโหลดสีสดใสพร้อมสลับ GIF เคลื่อนไหว */}
+      {isLoadingScreen && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-500 via-teal-500 to-amber-400 p-6 text-white">
+          <div className="w-full max-w-xs rounded-3xl bg-white/20 backdrop-blur-md border border-white/40 p-5 shadow-2xl flex flex-col items-center gap-4 text-center">
+            <div className="h-36 w-36 rounded-2xl overflow-hidden bg-white shadow-lg border-2 border-white">
+              <img
+                src={LOADING_GIFS[loadingGifIdx]}
+                alt="กำลังโหลด"
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-extrabold drop-shadow-xs">{loadingText}</p>
+              <p className="text-[11px] text-white/90 font-medium">
+                Tracen Collectibles • สลับภาพ GIF อัตโนมัติ
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
         svg {
           max-width: 24px;
           max-height: 24px;
           display: inline-block;
           flex-shrink: 0;
-        }
-        @keyframes macSlideEnter {
-          0% {
-            opacity: 0;
-            transform: translateX(36px) scale(0.985);
-          }
-          100% {
-            opacity: 1;
-            transform: translateX(0) scale(1);
-          }
         }
         @keyframes pulseBlob {
           0%, 100% {
@@ -310,9 +390,6 @@ export default function AuthPage() {
           100% {
             transform: translateX(100%);
           }
-        }
-        .mac-page-enter {
-          animation: macSlideEnter 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
         .blob-animate {
           animation: pulseBlob 8s ease-in-out infinite;
@@ -338,34 +415,34 @@ export default function AuthPage() {
         }
       `}</style>
 
-      {/* วงแสงตกแต่งพื้นหลัง */}
       <div className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl blob-animate" />
       <div className="pointer-events-none absolute bottom-10 -right-20 h-96 w-96 rounded-full bg-amber-300/15 blur-3xl blob-animate-delay" />
       <div className="pointer-events-none absolute top-1/2 left-1/3 h-64 w-64 rounded-full bg-teal-400/15 blur-3xl blob-animate" />
 
-      {/* แถบด้านบน */}
       <header className="relative z-10 border-b border-white/10 bg-white/5 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <button
             type="button"
-            onClick={() => navigateWithMacSlide('/', 260)}
+            onClick={() =>
+              triggerGifLoader('กำลังกลับหน้าร้าน Tracen Collectibles...', 650, () => {
+                router.push('/');
+              })
+            }
             className="group inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 px-4 py-2 text-xs sm:text-sm font-semibold text-white transition-all duration-200 active:scale-95"
           >
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-            <span>เลื่อนกลับหน้าร้าน</span>
+            <span>กลับหน้าร้าน</span>
           </button>
 
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 border border-amber-300/30 px-3 py-1 text-xs font-bold text-amber-200">
             <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
-            <span>GIF + Avatar Ready</span>
+            <span>GIF + Paste Ready</span>
           </span>
         </div>
       </header>
 
-      {/* กล่องกลางแบบ Split Card พร้อมเอฟเฟกต์เลื่อนเข้ามาแบบ macOS */}
-      <main className="mac-page-enter relative z-10 flex-1 flex items-center justify-center px-4 py-8 sm:py-12">
+      <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-8 sm:py-12">
         <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 rounded-3xl overflow-hidden shadow-2xl border border-white/15 bg-white/95 backdrop-blur-xl">
-          {/* ฝั่งซ้าย */}
           <div className="lg:col-span-5 bg-gradient-to-br from-emerald-700 via-emerald-800 to-teal-900 text-white p-7 sm:p-9 flex flex-col justify-between relative overflow-hidden">
             <div className="pointer-events-none absolute -right-12 -bottom-12 h-48 w-48 rounded-full bg-amber-400/15 blur-2xl" />
 
@@ -388,7 +465,7 @@ export default function AuthPage() {
                 ยินดีต้อนรับสู่คลับนักสะสม Uma Musume
               </h2>
               <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-                แนบรูปโปรไฟล์หรือภาพ GIF เคลื่อนไหวเท่ๆ ของตัวละครโปรด แล้วล็อกอินใช้งานข้ามเครื่องได้ทันที
+                แนบหรือวางรูปโปรไฟล์ / ภาพ GIF เคลื่อนไหว แล้วล็อกอินใช้งานข้ามเครื่องได้ทันที
               </p>
             </div>
 
@@ -399,7 +476,7 @@ export default function AuthPage() {
               </div>
               <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/10 p-3">
                 <Heart className="h-4 w-4 text-rose-300 shrink-0" />
-                <span>รองรับรูปโปรไฟล์นิ่ง และภาพ GIF เคลื่อนไหว</span>
+                <span>ก๊อปปี้แล้ววางรูปหรือ GIF ลงโปรไฟล์ได้ทันที</span>
               </div>
               <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/10 p-3">
                 <ShieldCheck className="h-4 w-4 text-emerald-300 shrink-0" />
@@ -408,7 +485,6 @@ export default function AuthPage() {
             </div>
           </div>
 
-          {/* ฝั่งขวา */}
           <div className="lg:col-span-7 p-6 sm:p-9 lg:p-10 flex flex-col justify-center bg-white">
             {checkingSession ? (
               <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-500 text-sm">
@@ -463,7 +539,11 @@ export default function AuthPage() {
                 <div className="space-y-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => navigateWithMacSlide('/', 260)}
+                    onClick={() =>
+                      triggerGifLoader('กำลังกลับหน้าร้าน...', 650, () => {
+                        router.push('/');
+                      })
+                    }
                     className="relative overflow-hidden btn-shimmer w-full flex items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3.5 text-sm font-bold text-white shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95"
                   >
                     ไปเลือกช้อปของสะสมต่อ
@@ -488,7 +568,7 @@ export default function AuthPage() {
                   <p className="text-xs sm:text-sm text-slate-500 mt-1">
                     {mode === 'login'
                       ? 'กรอกอีเมลและรหัสผ่านเพื่อเข้าใช้งานบัญชีของคุณ'
-                      : 'สร้างบัญชีฟรี พร้อมแนบรูปโปรไฟล์หรือภาพ GIF เคลื่อนไหว'}
+                      : 'สร้างบัญชีฟรี พร้อมแนบหรือวางรูปโปรไฟล์ / ภาพ GIF'}
                   </p>
                 </div>
 
@@ -540,7 +620,7 @@ export default function AuthPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* ช่องแนบรูปโปรไฟล์ + รองรับภาพ GIF เฉพาะตอนสมัครสมาชิก */}
+                  {/* ช่องแนบหรือก๊อปปี้แล้ววางรูปโปรไฟล์ / ภาพ GIF */}
                   {mode === 'register' && (
                     <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3.5">
                       <div className="flex items-center gap-4">
@@ -572,21 +652,31 @@ export default function AuthPage() {
                           />
                         </label>
 
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-slate-800">
-                              รูปโปรไฟล์ / ภาพ GIF
-                            </span>
-                            {avatarIsGif && (
-                              <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-800">
-                                GIF เคลื่อนไหว
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-800">
+                                รูปโปรไฟล์ / ภาพ GIF
                               </span>
-                            )}
+                              {avatarIsGif && (
+                                <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-800">
+                                  GIF เคลื่อนไหว
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handlePasteFromClipboardButton}
+                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 px-2 py-1 text-[10px] font-bold text-emerald-800 transition shrink-0"
+                            >
+                              <ClipboardPaste className="h-3 w-3" />
+                              <span>วางรูป/GIF</span>
+                            </button>
                           </div>
                           <p className="text-[11px] text-slate-500 leading-snug">
                             {avatarPreview
-                              ? `เลือกรูปแล้ว (${avatarSizeKB} KB) — แตะที่รูปเพื่อเปลี่ยนใหม่`
-                              : 'แตะกรอบซ้ายเพื่อเลือกรูปภาพ หรือไฟล์ GIF เคลื่อนไหว (ไม่บังคับ)'}
+                              ? `พร้อมใช้งาน (${avatarSizeKB} KB) — กด Ctrl+V หรือแตะเพื่อเปลี่ยน`
+                              : 'แตะเลือกรูป/GIF หรือก๊อปปี้แล้วกด Ctrl + V วางได้เลย (ไม่บังคับ)'}
                           </p>
                         </div>
                       </div>
@@ -603,7 +693,7 @@ export default function AuthPage() {
                         <input
                           type="text"
                           required
-                          placeholder="เช่น ไอซ์ อดิชาติ"
+                          placeholder="เช่น สเปเชียล เท็น หรือ เทรนเนอร์ซากุระ"
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
                           className="w-full rounded-2xl border border-slate-200 bg-slate-50/60 pl-10 pr-4 py-2.5 text-sm focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10 focus:outline-none transition"
@@ -621,7 +711,7 @@ export default function AuthPage() {
                       <input
                         type="email"
                         required
-                        placeholder="example@gmail.com"
+                        placeholder="trainer.tracen@gmail.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50/60 pl-10 pr-4 py-2.5 text-sm focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10 focus:outline-none transition"
