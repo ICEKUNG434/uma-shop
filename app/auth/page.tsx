@@ -348,11 +348,14 @@ export default function AuthPage() {
       {isLoadingScreen && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-500 via-teal-500 to-amber-400 p-6 text-white">
           <div className="w-full max-w-xs rounded-3xl bg-white/20 backdrop-blur-md border border-white/40 p-5 shadow-2xl flex flex-col items-center gap-4 text-center">
-            <div className="h-36 w-36 rounded-2xl overflow-hidden bg-white shadow-lg border-2 border-white">
+            <div
+              style={{ width: '144px', height: '144px', overflow: 'hidden' }}
+              className="rounded-2xl bg-white shadow-lg border-2 border-white shrink-0"
+            >
               <img
                 src={LOADING_GIFS[loadingGifIdx]}
                 alt="กำลังโหลด"
-                className="h-full w-full object-cover"
+                style={{ width: '144px', height: '144px', objectFit: 'cover' }}
               />
             </div>
             <div className="space-y-1">
@@ -492,14 +495,27 @@ export default function AuthPage() {
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
                   <div
-                    style={{ width: '64px', height: '64px', minWidth: '64px', minHeight: '64px' }}
+                    style={{
+                      width: '64px',
+                      height: '64px',
+                      minWidth: '64px',
+                      minHeight: '64px',
+                      maxWidth: '64px',
+                      maxHeight: '64px',
+                    }}
                     className="relative rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-extrabold text-2xl shadow-md shrink-0 overflow-hidden"
                   >
                     {currentAvatarUrl ? (
                       <img
                         src={currentAvatarUrl}
                         alt={displayTitle}
-                        className="h-full w-full object-cover"
+                        style={{
+                          width: '64px',
+                          height: '64px',
+                          maxWidth: '64px',
+                          maxHeight: '64px',
+                          objectFit: 'cover',
+                        }}
                       />
                     ) : (
                       displayTitle.charAt(0).toUpperCase()
@@ -620,72 +636,82 @@ export default function AuthPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* ช่องแนบหรือก๊อปปี้แล้ววางรูปโปรไฟล์ / ภาพ GIF (ล็อกขนาดกล่องคงที่) */}
+                  {/* ช่องแนบหรือก๊อปปี้แล้ววางรูปโปรไฟล์ / ภาพ GIF (ล็อกขนาดรูปตรงแท็ก img + จัดเรียงบน-ล่างไม่เบียดข้อความ) */}
                   {mode === 'register' && (
-                    <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3.5">
-                      <div className="flex items-center gap-3.5">
-                        <label
-                          style={{
-                            width: '76px',
-                            height: '76px',
-                            minWidth: '76px',
-                            minHeight: '76px',
-                          }}
-                          className="relative rounded-2xl border-2 border-dashed border-emerald-400/80 bg-white flex items-center justify-center cursor-pointer overflow-hidden shrink-0 hover:border-emerald-600 transition group"
-                        >
-                          {avatarPreview ? (
-                            <>
-                              <img
-                                src={avatarPreview}
-                                alt="ตัวอย่างรูปโปรไฟล์"
-                                className="h-full w-full object-cover"
-                              />
-                              <button
-                                type="button"
-                                onClick={handleRemoveAvatar}
-                                className="absolute top-1 right-1 h-5 w-5 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-xs hover:bg-rose-700"
-                                title="ลบรูปโปรไฟล์"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </>
-                          ) : (
-                            <ImagePlus className="h-6 w-6 text-emerald-600 group-hover:scale-110 transition-transform" />
-                          )}
-                          <input
-                            type="file"
-                            accept="image/*,.gif"
-                            onChange={handleAvatarChange}
-                            className="hidden"
+                    <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-4 flex flex-col items-center text-center gap-3">
+                      <label
+                        style={{
+                          width: '84px',
+                          height: '84px',
+                          minWidth: '84px',
+                          minHeight: '84px',
+                          maxWidth: '84px',
+                          maxHeight: '84px',
+                        }}
+                        className="relative rounded-full border-2 border-dashed border-emerald-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden shadow-xs hover:border-emerald-600 transition group"
+                      >
+                        {avatarPreview ? (
+                          <img
+                            src={avatarPreview}
+                            alt="ตัวอย่างรูปโปรไฟล์"
+                            style={{
+                              width: '84px',
+                              height: '84px',
+                              maxWidth: '84px',
+                              maxHeight: '84px',
+                              objectFit: 'cover',
+                              borderRadius: '9999px',
+                            }}
                           />
-                        </label>
+                        ) : (
+                          <ImagePlus className="h-7 w-7 text-emerald-600 group-hover:scale-110 transition-transform" />
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*,.gif"
+                          onChange={handleAvatarChange}
+                          className="hidden"
+                        />
+                      </label>
 
-                        <div className="min-w-0 flex-1 space-y-1.5">
-                          <div className="flex flex-wrap items-center justify-between gap-1.5">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="text-xs font-bold text-slate-800 truncate">
-                                รูปโปรไฟล์ / ภาพ GIF
-                              </span>
-                              {avatarIsGif && (
-                                <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 shrink-0">
-                                  GIF
-                                </span>
-                              )}
-                            </div>
+                      <div className="space-y-1.5 w-full">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-800">
+                            รูปโปรไฟล์ / ภาพ GIF
+                          </span>
+                          {avatarIsGif && (
+                            <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-800">
+                              GIF เคลื่อนไหว
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[11px] text-slate-500">
+                          {avatarPreview
+                            ? `พร้อมใช้งาน (${avatarSizeKB} KB) — กด Ctrl+V หรือแตะวงกลมเพื่อเปลี่ยน`
+                            : 'แตะวงกลมด้านบนเพื่อเลือกรูป/GIF หรือกด Ctrl + V วางได้เลย'}
+                        </p>
+
+                        <div className="flex items-center justify-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={handlePasteFromClipboardButton}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 text-[11px] font-bold text-emerald-800 transition"
+                          >
+                            <ClipboardPaste className="h-3.5 w-3.5" />
+                            <span>วางรูป / GIF จากคลิปบอร์ด</span>
+                          </button>
+
+                          {avatarPreview && (
                             <button
                               type="button"
-                              onClick={handlePasteFromClipboardButton}
-                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 px-2 py-1 text-[10px] font-bold text-emerald-800 transition shrink-0"
+                              onClick={handleRemoveAvatar}
+                              className="inline-flex items-center gap-1 rounded-xl bg-rose-100 hover:bg-rose-200 px-2.5 py-1.5 text-[11px] font-bold text-rose-700 transition"
                             >
-                              <ClipboardPaste className="h-3 w-3" />
-                              <span>วางรูป/GIF</span>
+                              <X className="h-3.5 w-3.5" />
+                              <span>ลบรูป</span>
                             </button>
-                          </div>
-                          <p className="text-[11px] text-slate-500 leading-snug">
-                            {avatarPreview
-                              ? `พร้อมใช้งาน (${avatarSizeKB} KB) — กด Ctrl+V หรือแตะเพื่อเปลี่ยน`
-                              : 'แตะเลือกรูป/GIF หรือก๊อปปี้แล้วกด Ctrl + V วางได้เลย (ไม่บังคับ)'}
-                          </p>
+                          )}
                         </div>
                       </div>
                     </div>
