@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient, User } from '@supabase/supabase-js';
 import {
   Search,
@@ -38,7 +38,7 @@ import {
   UserCircle2,
 } from 'lucide-react';
 
-const APP_VERSION = 'v3.3';
+const APP_VERSION = 'v3.4';
 const WEB3FORMS_ACCESS_KEY = '138683be-375e-4dce-a38e-3037a33dbd6e';
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
 
@@ -189,6 +189,8 @@ const PRODUCTS: Product[] = [
   },
 ];
 
+const QUICK_CHARACTERS = ['ทั้งหมด', 'Special Week', 'Tokai Teio', 'Oguri Cap', 'Rice Shower'];
+
 function compressSlipImage(
   file: File,
   maxWidth = 800,
@@ -226,9 +228,12 @@ function compressSlipImage(
 }
 
 export default function UmaShopPage() {
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isSlidingToAuth, setIsSlidingToAuth] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
+  const [selectedCharacter, setSelectedCharacter] = useState('ทั้งหมด');
   const [selectedStatus, setSelectedStatus] = useState<'ทั้งหมด' | 'พร้อมส่ง' | 'พรีออเดอร์'>('ทั้งหมด');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc' | 'rating'>('default');
@@ -268,6 +273,14 @@ export default function UmaShopPage() {
     setTimeout(() => {
       setToastMessage((prev) => (prev === msg ? null : prev));
     }, 2400);
+  };
+
+  const handleGoToAuth = () => {
+    if (isSlidingToAuth) return;
+    setIsSlidingToAuth(true);
+    setTimeout(() => {
+      router.push('/auth');
+    }, 260);
   };
 
   useEffect(() => {
@@ -446,12 +459,14 @@ export default function UmaShopPage() {
 
   const filteredProducts = PRODUCTS.filter((item) => {
     const matchCategory = selectedCategory === 'ทั้งหมด' || item.category === selectedCategory;
+    const matchCharacter =
+      selectedCharacter === 'ทั้งหมด' || item.character === selectedCharacter;
     const matchStatus = selectedStatus === 'ทั้งหมด' || item.status === selectedStatus;
     const matchSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.character.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.jpName.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCategory && matchStatus && matchSearch;
+    return matchCategory && matchCharacter && matchStatus && matchSearch;
   }).sort((a, b) => {
     if (sortBy === 'price-asc') return a.price - b.price;
     if (sortBy === 'price-desc') return b.price - a.price;
@@ -682,8 +697,16 @@ export default function UmaShopPage() {
     currentUser?.email?.split('@')[0] ||
     'สมาชิก';
 
+  const currentAvatarUrl: string | null = currentUser?.user_metadata?.avatar_url || null;
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900 pb-24 md:pb-0">
+    <div
+      className={`min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900 pb-24 md:pb-0 transition-all duration-300 ease-out ${
+        isSlidingToAuth
+          ? 'opacity-0 -translate-x-10 scale-[0.985]'
+          : 'opacity-100 translate-x-0 scale-100'
+      }`}
+    >
       <style jsx>{`
         svg {
           max-width: 24px;
@@ -766,7 +789,7 @@ export default function UmaShopPage() {
         }
       `}</style>
 
-      {/* 1. แถบเมนูด้านบนพร้อมลูกเล่น 4 ปุ่มขวาบน */}
+      {/* 1. แถบเมนูด้านบน */}
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-2.5 sm:gap-4">
           <div
@@ -812,7 +835,7 @@ export default function UmaShopPage() {
             )}
           </div>
 
-          {/* 4 ปุ่มขวาบนที่อัปเกรดแอนิเมชันและลูกเล่นแล้ว */}
+          {/* 4 ปุ่มขวาบน */}
           <div className="flex items-center gap-2 sm:gap-2.5">
             <button
               type="button"
@@ -823,7 +846,6 @@ export default function UmaShopPage() {
               <Search className="h-4 w-4" />
             </button>
 
-            {/* ปุ่มที่ 1: ออเดอร์ */}
             <button
               type="button"
               onClick={() => setIsOrdersOpen(true)}
@@ -839,7 +861,6 @@ export default function UmaShopPage() {
               )}
             </button>
 
-            {/* ปุ่มที่ 2: ถูกใจ */}
             <button
               onClick={() => setIsWishlistOpen(true)}
               className="group relative hidden sm:flex items-center gap-2 h-10 rounded-full border border-slate-200/90 bg-white px-4 text-sm font-semibold text-slate-700 hover:border-rose-300 hover:bg-rose-50/80 hover:text-rose-600 hover:-translate-y-0.5 hover:shadow-md hover:shadow-rose-100/80 active:scale-95 transition-all duration-200"
@@ -860,7 +881,6 @@ export default function UmaShopPage() {
               )}
             </button>
 
-            {/* ปุ่มที่ 3: ตะกร้า (ปุ่มเด่นพร้อม Shimmer & Bounce) */}
             <button
               onClick={() => setIsCartOpen(true)}
               className="group relative overflow-hidden cart-shimmer flex items-center gap-2 h-9 sm:h-10 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 sm:px-4 text-xs sm:text-sm font-bold text-white shadow-sm hover:shadow-lg hover:shadow-emerald-200 hover:-translate-y-0.5 active:scale-95 transition-all duration-200"
@@ -874,26 +894,35 @@ export default function UmaShopPage() {
               )}
             </button>
 
-            {/* ปุ่มที่ 4: เข้าสู่ระบบ / บัญชีฉัน */}
-            <Link
-              href="/auth"
-              className={`group relative flex items-center gap-2 h-9 sm:h-10 rounded-full border px-3.5 sm:px-4 text-xs sm:text-sm font-semibold hover:-translate-y-0.5 active:scale-95 transition-all duration-200 ${
+            {/* ปุ่มเข้าสู่ระบบ / บัญชีฉัน พร้อมเอฟเฟกต์เลื่อนปัดแบบ macOS */}
+            <button
+              type="button"
+              onClick={handleGoToAuth}
+              className={`group relative flex items-center gap-2 h-9 sm:h-10 rounded-full border pl-2 pr-3.5 sm:pr-4 text-xs sm:text-sm font-semibold hover:-translate-y-0.5 active:scale-95 transition-all duration-200 ${
                 currentUser
                   ? 'border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-800 hover:shadow-md hover:shadow-emerald-100'
                   : 'border-slate-200/90 bg-white text-slate-700 hover:border-emerald-400 hover:bg-emerald-50/50 hover:text-emerald-800 hover:shadow-md hover:shadow-slate-100'
               }`}
               title={currentUser ? `บัญชี: ${currentUser.email}` : 'เข้าสู่ระบบ / สมัครบัญชี'}
             >
-              <div className="relative flex items-center">
-                <UserCircle2 className="h-4 w-4 shrink-0 group-hover:scale-110 group-hover:text-emerald-600 transition-transform duration-200" />
+              <div className="relative h-6 w-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center overflow-hidden shrink-0">
+                {currentAvatarUrl ? (
+                  <img
+                    src={currentAvatarUrl}
+                    alt={displayUserName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <UserCircle2 className="h-4 w-4 group-hover:scale-110 group-hover:text-emerald-600 transition-transform duration-200" />
+                )}
                 {currentUser && (
-                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+                  <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-white" />
                 )}
               </div>
               <span className="max-w-[80px] sm:max-w-[110px] truncate">
                 {currentUser ? displayUserName : 'เข้าสู่ระบบ'}
               </span>
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -1005,6 +1034,28 @@ export default function UmaShopPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 flex-1 w-full">
+        {/* ลูกเล่นแถบกรองด่วนตามตัวละคร */}
+        <div className="mb-5 flex items-center gap-2 overflow-x-auto pb-1.5 no-scrollbar">
+          <span className="text-xs font-bold text-slate-400 shrink-0 mr-1">ตัวละคร:</span>
+          {QUICK_CHARACTERS.map((charName) => {
+            const active = selectedCharacter === charName;
+            return (
+              <button
+                key={charName}
+                type="button"
+                onClick={() => setSelectedCharacter(charName)}
+                className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-all shrink-0 active:scale-95 ${
+                  active
+                    ? 'bg-gradient-to-r from-amber-400 to-amber-300 text-slate-950 shadow-sm -translate-y-0.5'
+                    : 'bg-white text-slate-600 border border-slate-200/90 hover:border-emerald-300 hover:text-emerald-700'
+                }`}
+              >
+                {charName === 'ทั้งหมด' ? 'ทุกตัวละคร' : charName}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
             {categories.map((cat) => (
@@ -1069,6 +1120,7 @@ export default function UmaShopPage() {
               type="button"
               onClick={() => {
                 setSelectedCategory('ทั้งหมด');
+                setSelectedCharacter('ทั้งหมด');
                 setSelectedStatus('ทั้งหมด');
                 setSearchQuery('');
                 setSortBy('default');
@@ -1087,7 +1139,7 @@ export default function UmaShopPage() {
                 <div
                   key={product.id}
                   onClick={() => handleOpenProduct(product)}
-                  className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-white border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between"
+                  className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-white border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-xl hover:shadow-emerald-950/10 hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between"
                 >
                   <div>
                     <div className="relative aspect-square bg-white p-3.5 sm:p-5 border-b border-slate-100 overflow-hidden">
@@ -1235,15 +1287,16 @@ export default function UmaShopPage() {
           )}
         </button>
 
-        <Link
-          href="/auth"
+        <button
+          type="button"
+          onClick={handleGoToAuth}
           className={`flex flex-col items-center justify-center gap-1 min-w-[54px] py-1 text-[11px] font-medium active:scale-95 transition ${
             currentUser ? 'text-emerald-700 font-bold' : 'text-slate-600'
           }`}
         >
           <UserCircle2 className="h-5 w-5" />
           <span>{currentUser ? 'บัญชีฉัน' : 'ล็อกอิน'}</span>
-        </Link>
+        </button>
       </nav>
 
       {showScrollTop && (
