@@ -19,6 +19,8 @@ import {
   X,
   ZoomIn,
   RotateCcw,
+  Crop,
+  Check,
 } from 'lucide-react';
 
 const IMGBB_API_KEY = 'f9b2ed4e3933997a26d3ebd8799b306e';
@@ -35,32 +37,26 @@ function isGifFile(file: File): boolean {
   return file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
 }
 
-function readImageFile(file: File): Promise<{
-  rawDataUrl: string;
-  rawBase64: string;
-  sizeKB: number;
-}> {
+function readImageFile(file: File): Promise<{ rawDataUrl: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
       const rawDataUrl = (event.target?.result as string) || '';
-      const rawBase64 = rawDataUrl.split(',')[1] || '';
-      const sizeKB = Math.max(1, Math.round(file.size / 1024));
-      resolve({ rawDataUrl, rawBase64, sizeKB });
+      resolve({ rawDataUrl });
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
 }
 
-function cropImageToCircleBase64(
+function cropImageToCircle(
   imageSrc: string,
   zoom: number,
   offsetX: number,
   offsetY: number,
   outputSize = 360,
-  previewBoxSize = 84
-): Promise<{ base64Clean: string }> {
+  cropBoxSize = 220
+): Promise<{ dataUrl: string; base64Clean: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -80,7 +76,7 @@ function cropImageToCircleBase64(
       ctx.closePath();
       ctx.clip();
 
-      const scaleFactor = outputSize / previewBoxSize;
+      const scaleFactor = outputSize / cropBoxSize;
       const baseScale = Math.max(outputSize / img.width, outputSize / img.height);
       const drawW = img.width * baseScale * zoom;
       const drawH = img.height * baseScale * zoom;
@@ -90,9 +86,9 @@ function cropImageToCircleBase64(
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
       ctx.restore();
 
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      const dataUrl = canvas.toDataURL('image/png', 0.9);
       const base64Clean = dataUrl.split(',')[1] || '';
-      resolve({ base64Clean });
+      resolve({ dataUrl, base64Clean });
     };
     img.onerror = reject;
     img.src = imageSrc;
@@ -114,10 +110,13 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // รูปโปรไฟล์นิ่งเท่านั้น (ไม่รับ GIF)
-  const [avatarRawUrl, setAvatarRawUrl] = useState<string | null>(null);
-  const [avatarRawBase64, setAvatarRawBase64] = useState<string | null>(null);
-  const [avatarSizeKB, setAvatarSizeKB] = useState(0);
+  // รูปโปรไฟล์ที่ตัดกรอบวงกลมเสร็จแล้ว
+  const [croppedAvatarUrl, setCroppedAvatarUrl] = useState<string | null>(null);
+  const [croppedAvatarBase64, setCroppedAvatarBase64] = useState<string | null>(null);
+
+  // State สำหรับ Pop-up ตัดกรอบรูปวงกลม
+  const [rawImageToCrop, setRawImageToCrop] = useState<string | null>(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -160,7 +159,8 @@ export default function AuthPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const applyAvatarFile = useCallback(async (file: File) => {
+  // เปิด Pop-up ตัดกรอบทันทีเมื่อเลือกรูปหรือวางรูป
+  const openCropPopupWithFile = useCallback(async (file: File) => {
     if (isGifFile(file)) {
       setErrorMsg('ไม่รองรับไฟล์ GIF ครับ กรุณาเลือกหรือวางเฉพาะไฟล์รูปภาพ (JPG, PNG, WEBP)');
       return;
@@ -173,12 +173,11 @@ export default function AuthPage() {
 
     setErrorMsg(null);
     try {
-      const raw = await readImageFile(file);
-      setAvatarRawUrl(raw.rawDataUrl);
-      setAvatarRawBase64(raw.rawBase64);
-      setAvatarSizeKB(raw.sizeKB);
+      const { rawDataUrl } = await readImageFile(file);
+      setRawImageToCrop(rawDataUrl);
       setZoom(1);
       setOffset({ x: 0, y: 0 });
+      setIsCropModalOpen(true);
     } catch {
       setErrorMsg('ไม่สามารถอ่านไฟล์รูปภาพนี้ได้ กรุณาลองใหม่อีกครั้งครับ');
     }
@@ -194,7 +193,7 @@ export default function AuthPage() {
       if (clipboardData.files && clipboardData.files.length > 0) {
         const file = clipboardData.files[0];
         e.preventDefault();
-        applyAvatarFile(file);
+        openCropPopupWithFile(file);
         return;
       }
 
@@ -205,7 +204,7 @@ export default function AuthPage() {
             const file = item.getAsFile();
             if (file) {
               e.preventDefault();
-              applyAvatarFile(file);
+              openCropPopupWithFile(file);
               return;
             }
           }
@@ -215,7 +214,7 @@ export default function AuthPage() {
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [mode, currentUser, applyAvatarFile]);
+  }, [mode, currentUser, openCropPopupWithFile]);
 
   const handlePasteFromClipboardButton = async () => {
     try {
@@ -229,7 +228,7 @@ export default function AuthPage() {
         if (imgType) {
           const blob = await item.getType(imgType);
           const file = new File([blob], 'pasted-avatar.png', { type: imgType });
-          await applyAvatarFile(file);
+          await openCropPopupWithFile(file);
           return;
         }
       }
@@ -242,20 +241,38 @@ export default function AuthPage() {
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    await applyAvatarFile(file);
+    await openCropPopupWithFile(file);
     e.target.value = '';
   };
 
+  const handleConfirmCrop = async () => {
+    if (!rawImageToCrop) return;
+    try {
+      const { dataUrl, base64Clean } = await cropImageToCircle(
+        rawImageToCrop,
+        zoom,
+        offset.x,
+        offset.y,
+        360,
+        220
+      );
+      setCroppedAvatarUrl(dataUrl);
+      setCroppedAvatarBase64(base64Clean);
+      setIsCropModalOpen(false);
+    } catch {
+      setErrorMsg('ไม่สามารถตัดกรอบรูปได้ กรุณาลองใหม่อีกครั้งครับ');
+    }
+  };
+
   const handleRemoveAvatar = () => {
-    setAvatarRawUrl(null);
-    setAvatarRawBase64(null);
-    setAvatarSizeKB(0);
+    setCroppedAvatarUrl(null);
+    setCroppedAvatarBase64(null);
+    setRawImageToCrop(null);
     setZoom(1);
     setOffset({ x: 0, y: 0 });
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!avatarRawUrl) return;
     setIsDragging(true);
     setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -263,8 +280,8 @@ export default function AuthPage() {
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging) return;
-    const nextX = Math.max(-45, Math.min(45, e.clientX - dragStart.x));
-    const nextY = Math.max(-45, Math.min(45, e.clientY - dragStart.y));
+    const nextX = Math.max(-110, Math.min(110, e.clientX - dragStart.x));
+    const nextY = Math.max(-110, Math.min(110, e.clientY - dragStart.y));
     setOffset({ x: nextX, y: nextY });
   };
 
@@ -273,31 +290,12 @@ export default function AuthPage() {
   };
 
   const uploadAvatarToImgBB = async (): Promise<string | null> => {
-    if (!avatarRawUrl) return null;
-
-    let base64ToUpload = avatarRawBase64;
-    try {
-      const cropped = await cropImageToCircleBase64(
-        avatarRawUrl,
-        zoom,
-        offset.x,
-        offset.y,
-        360,
-        84
-      );
-      if (cropped.base64Clean) {
-        base64ToUpload = cropped.base64Clean;
-      }
-    } catch {
-      base64ToUpload = avatarRawBase64;
-    }
-
-    if (!base64ToUpload) return null;
+    if (!croppedAvatarBase64) return null;
 
     try {
       const formData = new FormData();
       formData.append('key', IMGBB_API_KEY);
-      formData.append('image', base64ToUpload);
+      formData.append('image', croppedAvatarBase64);
       formData.append('name', `trainer-avatar-${Date.now()}`);
 
       const res = await fetch('https://api.imgbb.com/1/upload', {
@@ -324,7 +322,7 @@ export default function AuthPage() {
     try {
       if (mode === 'register') {
         let uploadedAvatarUrl: string | null = null;
-        if (avatarRawUrl) {
+        if (croppedAvatarBase64) {
           uploadedAvatarUrl = await uploadAvatarToImgBB();
         }
 
@@ -426,7 +424,99 @@ export default function AuthPage() {
         </div>
       )}
 
-      {/* CSS ล็อกขนาดรูปภาพและไอคอนด้วย !important ไม่ให้ยืดหรือเพี้ยนตาม globals.css */}
+      {/* Pop-up ตัดกรอบรูปโปรไฟล์วงกลม */}
+      {isCropModalOpen && rawImageToCrop && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Crop className="h-4 w-4 text-emerald-600" />
+                <h3 className="text-base font-extrabold text-slate-900">ตัดกรอบรูปโปรไฟล์</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCropModalOpen(false)}
+                className="h-8 w-8 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-col items-center gap-3">
+              <div
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                style={{ touchAction: 'none' }}
+                className="crop-stage-box relative bg-slate-900 border-4 border-emerald-500 shadow-lg cursor-grab active:cursor-grabbing select-none"
+                title="ลากเพื่อเลื่อนตำแหน่งภาพ"
+              >
+                <img
+                  src={rawImageToCrop}
+                  alt="ปรับตำแหน่งรูปโปรไฟล์"
+                  draggable={false}
+                  className="crop-stage-img"
+                  style={{
+                    transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                    transformOrigin: 'center center',
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-slate-500">
+                ลากภาพในวงกลมเพื่อจัดตำแหน่ง และเลื่อนแถบด้านล่างเพื่อซูม
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 text-xs text-slate-600 bg-slate-50 rounded-2xl px-3.5 py-2.5 border border-slate-200/80">
+              <ZoomIn className="h-4 w-4 text-emerald-600 shrink-0" />
+              <input
+                type="range"
+                min={1}
+                max={2.6}
+                step={0.05}
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                className="flex-1 accent-emerald-600 cursor-pointer h-1.5"
+                aria-label="ซูมรูปโปรไฟล์"
+              />
+              <span className="font-mono font-bold text-slate-800 w-9 text-right">
+                {zoom.toFixed(1)}x
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setZoom(1);
+                  setOffset({ x: 0, y: 0 });
+                }}
+                className="inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:text-emerald-700"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>รีเซ็ต</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsCropModalOpen(false)}
+                className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCrop}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-2.5 text-xs font-bold text-white shadow-sm transition active:scale-95"
+              >
+                <Check className="h-4 w-4" />
+                <span>ใช้รูปนี้</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSS ล็อกขนาดรูปภาพวงกลมทุกจุดด้วย !important */}
       <style jsx>{`
         svg {
           max-width: 22px !important;
@@ -445,25 +535,46 @@ export default function AuthPage() {
           max-height: 140px !important;
           object-fit: cover !important;
         }
-        .avatar-circle-box {
-          width: 84px !important;
-          height: 84px !important;
-          min-width: 84px !important;
-          min-height: 84px !important;
-          max-width: 84px !important;
-          max-height: 84px !important;
+        .dashed-circle-picker {
+          width: 54px !important;
+          height: 54px !important;
+          min-width: 54px !important;
+          min-height: 54px !important;
+          border-radius: 9999px !important;
+          border: 2px dashed #10b981 !important;
+        }
+        .final-avatar-circle {
+          width: 92px !important;
+          height: 92px !important;
+          min-width: 92px !important;
+          min-height: 92px !important;
+          max-width: 92px !important;
+          max-height: 92px !important;
           border-radius: 9999px !important;
           overflow: hidden !important;
         }
-        .avatar-circle-img {
-          width: 84px !important;
-          height: 84px !important;
-          min-width: 84px !important;
-          min-height: 84px !important;
-          max-width: 84px !important;
-          max-height: 84px !important;
+        .final-avatar-img {
+          width: 92px !important;
+          height: 92px !important;
+          max-width: 92px !important;
+          max-height: 92px !important;
           object-fit: cover !important;
           border-radius: 9999px !important;
+        }
+        .crop-stage-box {
+          width: 220px !important;
+          height: 220px !important;
+          min-width: 220px !important;
+          min-height: 220px !important;
+          border-radius: 9999px !important;
+          overflow: hidden !important;
+        }
+        .crop-stage-img {
+          width: 220px !important;
+          height: 220px !important;
+          max-width: 220px !important;
+          max-height: 220px !important;
+          object-fit: cover !important;
         }
         .profile-badge-box {
           width: 60px !important;
@@ -482,7 +593,6 @@ export default function AuthPage() {
         }
       `}</style>
 
-      {/* แถบเมนูด้านบน */}
       <header className="border-b border-white/10 bg-white/5 backdrop-blur-md">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <button
@@ -507,7 +617,6 @@ export default function AuthPage() {
         </div>
       </header>
 
-      {/* การ์ดเดี่ยวขนาดกะทัดรัดพอดีหน้าจอ ไม่ยืดยาว */}
       <main className="flex-1 flex items-center justify-center px-4 py-6">
         <div className="w-full max-w-[430px] rounded-3xl bg-white shadow-2xl border border-white/20 p-6 sm:p-7">
           {checkingSession ? (
@@ -576,7 +685,6 @@ export default function AuthPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* หัวข้อการ์ด */}
               <div className="text-center">
                 <h1 className="text-xl font-extrabold text-slate-900">
                   {mode === 'login' ? 'เข้าสู่ระบบเทรนเนอร์' : 'สมัครสมาชิกใหม่'}
@@ -588,7 +696,6 @@ export default function AuthPage() {
                 </p>
               </div>
 
-              {/* แถบสลับแท็บ */}
               <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1">
                 <button
                   type="button"
@@ -637,36 +744,58 @@ export default function AuthPage() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-3.5">
-                {/* กรอบรูปโปรไฟล์วงกลมแบบกะทัดรัด (เฉพาะภาพนิ่ง ไม่รับ GIF) */}
+                {/* ส่วนใส่รูปโปรไฟล์: ก่อนใส่จะมีวงกลมรอยปะ + คำอธิบาย / หลังใส่แล้วคำอธิบายหายไป เหลือแค่ภาพวงกลม */}
                 {mode === 'register' && (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3 flex flex-col items-center text-center gap-2.5">
-                    <div className="relative">
-                      {avatarRawUrl ? (
-                        <div
-                          onPointerDown={handlePointerDown}
-                          onPointerMove={handlePointerMove}
-                          onPointerUp={handlePointerUp}
-                          style={{ touchAction: 'none' }}
-                          className="avatar-circle-box relative border-2 border-emerald-500 bg-white shadow-xs cursor-grab active:cursor-grabbing select-none"
-                          title="ลากเพื่อเลื่อนตำแหน่งภาพในวงกลม"
-                        >
-                          <img
-                            src={avatarRawUrl}
-                            alt="ตัวอย่างรูปโปรไฟล์"
-                            draggable={false}
-                            className="avatar-circle-img"
-                            style={{
-                              transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-                              transformOrigin: 'center center',
+                  <>
+                    {croppedAvatarUrl ? (
+                      <div className="flex justify-center py-1">
+                        <div className="relative">
+                          <div
+                            onClick={() => {
+                              if (rawImageToCrop) setIsCropModalOpen(true);
                             }}
-                          />
+                            className="final-avatar-circle border-2 border-emerald-500 bg-white shadow-md cursor-pointer"
+                            title="แตะเพื่อตัดกรอบรูปใหม่"
+                          >
+                            <img
+                              src={croppedAvatarUrl}
+                              alt="รูปโปรไฟล์"
+                              className="final-avatar-img"
+                            />
+                          </div>
+
+                          {/* ปุ่มแก้ไขการตัดกรอบใหม่ */}
+                          {rawImageToCrop && (
+                            <button
+                              type="button"
+                              onClick={() => setIsCropModalOpen(true)}
+                              style={{ width: '26px', height: '26px' }}
+                              className="absolute -bottom-1 -left-1 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-sm hover:bg-emerald-700"
+                              title="ตัดกรอบรูปใหม่"
+                            >
+                              <Crop className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+
+                          {/* ปุ่มลบรูป */}
+                          <button
+                            type="button"
+                            onClick={handleRemoveAvatar}
+                            style={{ width: '26px', height: '26px' }}
+                            className="absolute -top-1 -right-1 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-sm hover:bg-rose-700"
+                            title="ลบรูป"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
                         </div>
-                      ) : (
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3 flex items-center gap-3">
                         <label
-                          className="avatar-circle-box border-2 border-dashed border-emerald-400 bg-white flex items-center justify-center cursor-pointer hover:border-emerald-600 transition"
+                          className="dashed-circle-picker bg-white flex items-center justify-center cursor-pointer hover:bg-emerald-50/60 transition shrink-0"
                           title="แตะเพื่อเลือกรูปภาพ"
                         >
-                          <ImagePlus className="h-6 w-6 text-emerald-600" />
+                          <ImagePlus className="h-5 w-5 text-emerald-600" />
                           <input
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
@@ -674,73 +803,28 @@ export default function AuthPage() {
                             className="hidden"
                           />
                         </label>
-                      )}
 
-                      {avatarRawUrl && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveAvatar}
-                          style={{ width: '22px', height: '22px' }}
-                          className="absolute -top-1 -right-1 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-sm hover:bg-rose-700"
-                          title="ลบรูป"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-1 w-full">
-                      <p className="text-[11px] font-bold text-slate-700">
-                        รูปโปรไฟล์ (เฉพาะภาพ JPG / PNG / WEBP)
-                      </p>
-                      <p className="text-[10px] text-slate-500">
-                        {avatarRawUrl
-                          ? `ลากในวงกลมเพื่อเลื่อนตำแหน่งได้ (${avatarSizeKB} KB)`
-                          : 'แตะวงกลมด้านบนหรือกด Ctrl + V วางรูปได้เลย'}
-                      </p>
-
-                      <div className="pt-0.5">
-                        <button
-                          type="button"
-                          onClick={handlePasteFromClipboardButton}
-                          className="inline-flex items-center gap-1 rounded-full bg-emerald-100 hover:bg-emerald-200 px-3 py-1 text-[11px] font-bold text-emerald-800 transition"
-                        >
-                          <ClipboardPaste className="h-3 w-3" />
-                          <span>วางรูปจากคลิปบอร์ด</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {avatarRawUrl && (
-                      <div className="w-full pt-2 border-t border-slate-200/80 flex items-center gap-2 text-[11px] text-slate-600">
-                        <ZoomIn className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                        <input
-                          type="range"
-                          min={1}
-                          max={2.4}
-                          step={0.05}
-                          value={zoom}
-                          onChange={(e) => setZoom(parseFloat(e.target.value))}
-                          className="flex-1 accent-emerald-600 cursor-pointer h-1.5"
-                          aria-label="ซูมรูปโปรไฟล์"
-                        />
-                        <span className="font-mono font-bold text-slate-700 w-8 text-right">
-                          {zoom.toFixed(1)}x
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setZoom(1);
-                            setOffset({ x: 0, y: 0 });
-                          }}
-                          className="inline-flex items-center gap-0.5 rounded-full bg-white border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 hover:text-emerald-700"
-                        >
-                          <RotateCcw className="h-2.5 w-2.5" />
-                          <span>รีเซ็ต</span>
-                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-slate-800 truncate">
+                              รูปโปรไฟล์
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handlePasteFromClipboardButton}
+                              className="inline-flex items-center gap-1 rounded-full bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 text-[11px] font-bold text-emerald-800 transition shrink-0"
+                            >
+                              <ClipboardPaste className="h-3 w-3" />
+                              <span>วางรูป</span>
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                            แตะเลือกรูปหรือกด Ctrl + V วางได้เลย
+                          </p>
+                        </div>
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
 
                 {mode === 'register' && (
